@@ -63,18 +63,21 @@ When it is ready, the browser opens by itself at **<http://localhost:8501>**.
 
 ## 5. Process a product
 
-1. Copy your **Level-1** products into the `data/input/` folder that appeared
-   next to the repository (`.SEN3` folders for Sentinel-3 OLCI, `.SAFE` for
-   Sentinel-2 MSI, `.he5` files for PRISMA, `.N1` for MERIS, `.L1C` for
-   MODIS/VIIRS/SeaWiFS…).
-2. On the **Processing** tab: pick the product, the sensor (`auto` is fine in
-   most cases; for **PRISMA** and **HICO** choose the sensor manually), the
-   output format and the parameters.
-3. Press **▶ Run Polymer**. The processing log scrolls on screen.
-4. When done, the result is in `data/output/` and a preview is shown in the
-   interface.
-
-You can select **several products at once** for batch processing.
+1. Get your **Level-1** products into `data/input/`, either by copying them into
+   the folder that appeared next to the repository (`.SEN3` folders for
+   Sentinel-3 OLCI, `.SAFE` for Sentinel-2 MSI, `.he5` for PRISMA, `.N1` for
+   MERIS, `.L1C` for MODIS/VIIRS/SeaWiFS…) **or** with the **Upload a product**
+   panel on the Processing tab (drop a `.zip` for folder products, or a
+   single-file product).
+2. On the **Processing** tab: pick the product; with sensor `auto` the
+   interface shows the detected sensor (for **PRISMA** and **HICO** choose it
+   manually); set the output format and the parameters.
+3. Press **Run Polymer**. A progress bar and the log update while it runs; you
+   can **Cancel** at any time. It keeps running if you switch tabs.
+4. Select **several products at once** for batch processing — a summary table
+   shows which succeeded, and a button re-runs just the failed ones.
+5. Browse outputs on the **Results** tab: pick a file, choose a variable (or the
+   automatic RGB / chlorophyll view), see a histogram, and download the file.
 
 ## 6. Stop / update
 

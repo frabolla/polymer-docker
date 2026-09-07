@@ -34,8 +34,23 @@ QUEUE = RUN_DIR / "queue.json"
 LOCK = RUN_DIR / ".lock"
 JOBS_LOG = OUTPUT_DIR / "_jobs.log"
 
+# Housekeeping limits.
+KEEP_RUNS = 25          # per-run file sets kept under _run/
+JOBS_LOG_MAX_LINES = 500
+
 _PROC_RE = re.compile(r"Processing block:")
 _TOTAL_RE = re.compile(r"BLOCKS_TOTAL (\d+)")
+
+
+def configure(output_dir) -> None:
+    """Repoint all paths at `output_dir` (used by the test suite)."""
+    global OUTPUT_DIR, RUN_DIR, CURRENT, QUEUE, LOCK, JOBS_LOG
+    OUTPUT_DIR = Path(output_dir)
+    RUN_DIR = OUTPUT_DIR / "_run"
+    CURRENT = RUN_DIR / "current.json"
+    QUEUE = RUN_DIR / "queue.json"
+    LOCK = RUN_DIR / ".lock"
+    JOBS_LOG = OUTPUT_DIR / "_jobs.log"
 
 
 # ------------------------------------------------------------------ small helpers
@@ -142,11 +157,22 @@ def enqueue(cfgs: list[dict], version: str = "") -> str:
             }
         )
     with _Lock():
+        RUN_DIR.mkdir(parents=True, exist_ok=True)
+        _write_json(RUN_DIR / f"batch_{batch_id}.json", items)  # for "re-run failed"
         q = _read_json(QUEUE, [])
         q.extend(items)
         _write_json(QUEUE, q)
     poll()
     return batch_id
+
+
+def failed_cfgs(batch_id: str) -> list[dict]:
+    """The job configs of the failed runs in `batch_id` (for a re-run)."""
+    items = _read_json(RUN_DIR / f"batch_{batch_id}.json", [])
+    if not items:
+        return []
+    bad = {r["run_id"] for r in batch_rows(batch_id) if r.get("result") != "ok"}
+    return [it["cfg"] for it in items if it["run_id"] in bad]
 
 
 def _start(item: dict) -> None:
@@ -208,6 +234,29 @@ def _finalize(cur: dict) -> None:
     }
     _append_history(row)
     CURRENT.unlink(missing_ok=True)
+    _prune()
+
+
+def _prune() -> None:
+    """Cap the size of _run/ and _jobs.log so they do not grow forever."""
+    try:
+        cfgs = sorted(RUN_DIR.glob("*.cfg.json"), key=lambda p: p.stat().st_mtime)
+        for old in cfgs[:-KEEP_RUNS]:
+            rid = old.name[: -len(".cfg.json")]
+            for suffix in (".cfg.json", ".log", ".result.json", ".result.json.tmp"):
+                (RUN_DIR / f"{rid}{suffix}").unlink(missing_ok=True)
+        batches = sorted(RUN_DIR.glob("batch_*.json"), key=lambda p: p.stat().st_mtime)
+        for old in batches[:-KEEP_RUNS]:
+            old.unlink(missing_ok=True)
+    except Exception:
+        pass
+    try:
+        if JOBS_LOG.exists():
+            lines = JOBS_LOG.read_text().splitlines()
+            if len(lines) > JOBS_LOG_MAX_LINES:
+                JOBS_LOG.write_text("\n".join(lines[-JOBS_LOG_MAX_LINES:]) + "\n")
+    except Exception:
+        pass
 
 
 def poll() -> None:

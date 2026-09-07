@@ -41,7 +41,9 @@ LICENCE_FLAG = CONFIG_DIR / ".polymer_licence_accepted"
 OUTPUT_DIR = Path("/data/output")
 INPUT_DIR = Path("/data/input")
 
-st.set_page_config(page_title="Polymer", page_icon="P", layout="wide")
+st.set_page_config(
+    page_title="Polymer", page_icon=":material/water_drop:", layout="wide"
+)
 
 # Hide Streamlit's own chrome (the "Deploy" button, the hamburger menu and the
 # "Made with Streamlit" footer) so the page reads as a standalone tool.
@@ -117,6 +119,7 @@ def licence_gate() -> bool:
         return True
     st.title(i18n.t("licence.title"))
     st.caption(i18n.t("app.fork_note"))
+    st.caption(i18n.t("app.author"))
     st.warning(i18n.t("licence.warning"))
 
     with st.expander(i18n.t("licence.steps_header"), expanded=True):
@@ -159,7 +162,9 @@ def sidebar_status() -> None:
     if not ok_aux:
         st.sidebar.info(i18n.t("status.need_auxdata"))
     st.sidebar.caption(i18n.t("status.folders"))
+    st.sidebar.caption(i18n.t("sidebar.freespace", mb=status.free_space_mb()))
     st.sidebar.caption(i18n.t("sidebar.version", v=status.app_version()))
+    st.sidebar.caption(i18n.t("app.author"))
 
 
 # --------------------------------------------------------------------- setup tab
@@ -173,7 +178,11 @@ def tab_config() -> None:
     elif problems and status.auxdata_size_mb() > 0:
         st.warning("\n".join("- " + p for p in problems))
 
-    if st.button(i18n.t("config.aux_button"), type="primary"):
+    free = status.free_space_mb()
+    if free < 2000:
+        st.warning(i18n.t("config.low_disk", mb=free))
+
+    if st.button(i18n.t("config.aux_button"), type="primary", disabled=free < 500):
         rc = stream_command([sys.executable, "-m", "polymer.get_auxdata"])
         ok_after, problems_after = status.verify_auxdata()
         if rc == 0 and ok_after:
@@ -199,9 +208,12 @@ def tab_config() -> None:
         with st.form("form_nasa"):
             login = st.text_input(i18n.t("config.nasa_user"), value=ed.get("login", ""))
             pw = st.text_input(i18n.t("config.nasa_pass"), type="password")
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns(3)
             save = c1.form_submit_button(i18n.t("config.nasa_save"), type="primary")
-            clear = c2.form_submit_button(i18n.t("config.remove"))
+            verify = c2.form_submit_button(i18n.t("config.cred_test"))
+            clear = c3.form_submit_button(i18n.t("config.remove"))
+        if verify:
+            _show_cred_test(cred.test_earthdata(login, pw))
         if save:
             if login and pw:
                 cred.write_earthdata(login, pw)
@@ -223,9 +235,12 @@ def tab_config() -> None:
                 value=cds.get("key", ""),
                 help=i18n.t("config.cds_key_help"),
             )
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns(3)
             save = c1.form_submit_button(i18n.t("config.cds_save"), type="primary")
-            clear = c2.form_submit_button(i18n.t("config.remove"))
+            verify = c2.form_submit_button(i18n.t("config.cred_test"))
+            clear = c3.form_submit_button(i18n.t("config.remove"))
+        if verify:
+            _show_cred_test(cred.test_cds(key.strip()))
         if save:
             if key.strip():
                 cred.write_cds(key.strip())
@@ -241,6 +256,16 @@ def tab_config() -> None:
 
     else:
         st.info(i18n.t("config.cred_none"))
+
+
+def _show_cred_test(result: tuple[str, str]) -> None:
+    verdict, msg = result
+    if verdict == "ok":
+        st.success(i18n.t("config.cred_test_ok"))
+    elif verdict == "bad":
+        st.error(i18n.t("config.cred_test_bad", msg=msg))
+    else:
+        st.info(i18n.t("config.cred_test_skip", msg=msg))
 
 
 # -------------------------------------------------------------- job config build
@@ -347,7 +372,15 @@ def render_batch_summary() -> None:
         for r in rows
     ]
     st.dataframe(disp, width="stretch", hide_index=True)
-    if st.button(i18n.t("batch.dismiss")):
+
+    failed = job_runner.failed_cfgs(batch_id)
+    c1, c2 = st.columns(2)
+    if failed and c1.button(i18n.t("batch.rerun_failed", n=len(failed)), type="primary"):
+        st.session_state["last_batch"] = job_runner.enqueue(
+            failed, version=status.app_version()
+        )
+        st.rerun()
+    if c2.button(i18n.t("batch.dismiss")):
         del st.session_state["last_batch"]
         st.rerun()
     st.divider()
@@ -365,6 +398,16 @@ def render_uploader() -> None:
             for m in uploads.save_uploads(files):
                 st.write("- " + m)
             st.rerun()
+
+
+def _autodetect_sensor(name: str) -> str | None:
+    """Polymer's file-name-based sensor detection (no file is opened)."""
+    try:
+        from polymer.level1 import Level1
+
+        return Level1(str(INPUT_DIR / name)).sensor
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------- processing tab
@@ -404,6 +447,12 @@ def tab_process() -> None:
         resolution = st.selectbox(i18n.t("process.msi_res"), ["10", "20", "60"], index=2)
     if sensor in NEEDS_EXPLICIT_SENSOR:
         st.caption(i18n.t("process.explicit_sensor", sensor=sensor))
+    if sensor == "auto" and len(selected) == 1:
+        detected = _autodetect_sensor(selected[0])
+        if detected:
+            st.caption(i18n.t("process.detected", sensor=detected))
+        else:
+            st.caption(i18n.t("process.detect_fail"))
 
     ancillary = st.selectbox(
         i18n.t("process.ancillary"),
@@ -451,7 +500,13 @@ def tab_process() -> None:
             help=i18n.t("process.output_name_help"),
         )
 
-    if st.button(i18n.t("process.run"), type="primary", disabled=not selected):
+    free = status.free_space_mb()
+    if free < 2000:
+        st.warning(i18n.t("process.low_disk", mb=free))
+
+    if st.button(
+        i18n.t("process.run"), type="primary", disabled=not selected or free < 500
+    ):
         advanced = parse_advanced(advanced_text)
         cfgs = [
             build_job_config(
@@ -484,6 +539,7 @@ def tab_guide() -> None:
     st.divider()
     st.subheader(i18n.t("guide.about_header"))
     st.markdown(i18n.t("guide.about_body"))
+    st.markdown(i18n.t("app.author"))
 
 
 # ------------------------------------------------------------------- results tab
@@ -508,8 +564,19 @@ def tab_results() -> None:
         files,
         format_func=lambda p: p.name,
     )
+    size_mb = pick.stat().st_size / 1e6
     when = datetime.fromtimestamp(pick.stat().st_mtime).isoformat(timespec="seconds")
-    st.caption(i18n.t("results.info", name=pick.name, size=pick.stat().st_size / 1e6, when=when))
+    st.caption(i18n.t("results.info", name=pick.name, size=size_mb, when=when))
+
+    if size_mb <= 400:
+        st.download_button(
+            i18n.t("results.download"),
+            data=pick.read_bytes(),
+            file_name=pick.name,
+            mime="application/x-netcdf" if pick.suffix == ".nc" else "application/octet-stream",
+        )
+    else:
+        st.caption(i18n.t("results.too_big", size=size_mb))
 
     try:
         vars_ = quicklook.list_2d_vars(str(pick))

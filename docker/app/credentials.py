@@ -10,6 +10,8 @@ restarts. HOME is set to /data/config in the Dockerfile / entrypoint.
 from __future__ import annotations
 
 import os
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 CONFIG_DIR = Path(os.environ.get("HOME", "/data/config"))
@@ -42,6 +44,10 @@ def read_earthdata() -> dict:
 def write_earthdata(login: str, password: str) -> None:
     """Create/update the Earthdata line in ~/.netrc, leaving other lines intact."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        CONFIG_DIR.chmod(0o700)
+    except OSError:
+        pass
     lines = []
     if NETRC.exists():
         lines = [
@@ -82,6 +88,10 @@ def read_cds() -> dict:
 
 def write_cds(key: str, url: str = CDS_URL) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        CONFIG_DIR.chmod(0o700)
+    except OSError:
+        pass
     CDSAPIRC.write_text(f"url: {url}\nkey: {key}\n")
     CDSAPIRC.chmod(0o600)
 
@@ -89,6 +99,43 @@ def write_cds(key: str, url: str = CDS_URL) -> None:
 def clear_cds() -> None:
     if CDSAPIRC.exists():
         CDSAPIRC.unlink()
+
+
+# --------------------------------------------------------------- lightweight tests
+# Return values: ("ok", "") | ("bad", detail) | ("skip", detail)
+_TIMEOUT = 12
+
+
+def test_earthdata(login: str, password: str) -> tuple[str, str]:
+    """Check NASA Earthdata credentials against the tokens endpoint (HTTP basic)."""
+    url = "https://urs.earthdata.nasa.gov/api/users/tokens"
+    mgr = urllib.request.HTTPPasswordMgrWithDefaultRealm()
+    mgr.add_password(None, "https://urs.earthdata.nasa.gov/", login, password)
+    opener = urllib.request.build_opener(urllib.request.HTTPBasicAuthHandler(mgr))
+    try:
+        with opener.open(url, timeout=_TIMEOUT) as resp:
+            return ("ok", "") if resp.status == 200 else ("bad", f"HTTP {resp.status}")
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return ("bad", "wrong username or password")
+        return ("skip", f"HTTP {e.code}")
+    except Exception as e:  # network/DNS/timeout
+        return ("skip", str(e))
+
+
+def test_cds(key: str, url: str = CDS_URL) -> tuple[str, str]:
+    """Check a Copernicus CDS API key against the account profile endpoint."""
+    endpoint = url.rstrip("/") + "/profiles/v1/account"
+    req = urllib.request.Request(endpoint, headers={"PRIVATE-TOKEN": key})
+    try:
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+            return ("ok", "") if resp.status == 200 else ("bad", f"HTTP {resp.status}")
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return ("bad", "invalid API key")
+        return ("skip", f"HTTP {e.code}")
+    except Exception as e:
+        return ("skip", str(e))
 
 
 # ------------------------------------------------------------------------- status

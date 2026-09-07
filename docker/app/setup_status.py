@@ -5,6 +5,7 @@ integrity verification.
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 AUXDATA_DIR = Path(os.environ.get("DIR_POLYMER_AUXDATA", "/data/auxdata/static"))
@@ -91,6 +92,14 @@ def list_input_products() -> list[str]:
 
 def overall_ready() -> bool:
     return cython_modules_ok() and auxdata_present()
+
+
+def free_space_mb(path: str | Path = "/data") -> float:
+    """Free space on the filesystem holding `path`, in MB (0 on error)."""
+    try:
+        return shutil.disk_usage(str(path)).free / (1024 * 1024)
+    except Exception:
+        return 0.0
 
 
 def app_version() -> str:

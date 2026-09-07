@@ -11,7 +11,9 @@ command line.
 > **<https://github.com/hygeos/polymer>**.
 >
 > This fork adds only the packaging in [`docker/`](docker/) — a Docker image plus
-> a graphical interface. The Polymer algorithm itself is unchanged.
+> a graphical interface, by **Francesco Tarini**
+> ([@frabolla](https://github.com/frabolla)). The Polymer algorithm itself is
+> unchanged.
 >
 > Polymer is **free for non-commercial use** and **must not be redistributed**
 > (see [`LICENCE.TXT`](LICENCE.TXT)). For that reason no ready-made image is
@@ -43,10 +45,13 @@ command line.
      climatologies are used).
 5. Put your **Level-1** products in the `data/input/` folder next to the project
    (`.SEN3` folders for Sentinel-3 OLCI, `.SAFE` for Sentinel-2 MSI, `.he5` for
-   PRISMA, `.N1` for MERIS, `.L1C` for MODIS/VIIRS/SeaWiFS). Reload the page.
-6. **Processing** tab → pick a product and a sensor (`auto` is usually right) →
-   **Run Polymer**. Results are written to `data/output/`, with a preview shown
-   in the page.
+   PRISMA, `.N1` for MERIS, `.L1C` for MODIS/VIIRS/SeaWiFS) — or use the in-app
+   **Upload a product** panel. Reload the page.
+6. **Processing** tab → pick one or more products and a sensor (`auto` shows the
+   detected one) → **Run Polymer**. A progress bar and a Cancel button track the
+   run; batches get a summary with a "re-run failed" button.
+7. **Results** tab → browse the output files, preview any variable with a
+   histogram, and download.
 
 ## After an update (no full rebuild)
 

@@ -1,10 +1,8 @@
-# Verify that the Polymer Docker image builds correctly.
+# Verify that the Polymer interface tests pass and the Docker image builds.
 # It does NOT publish any image: Polymer's licence forbids redistribution.
 #
-# linux/amd64 is built on every push (native, ~15-20 min).
-# linux/arm64 is emulated via QEMU (~1 h), so it only runs on pull requests and
-# on a manual "Run workflow" (workflow_dispatch) — enough to catch breakage in
-# docker/environment.arm64.yml without slowing every push.
+# Both architectures build on native runners (amd64 and arm64), so each leg is
+# fast enough to run on every push.
 name: docker-build
 
 on:
@@ -27,26 +25,36 @@ on:
       - "makefile"
   workflow_dispatch:
 
-# Only keep the latest run per branch; cancel superseded ones.
+# Keep only the latest run per branch; cancel superseded ones.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest numpy
+      - run: pytest docker/tests -q
+
+  build:
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        # amd64 always; add arm64 only on pull_request / workflow_dispatch.
-        platform: ${{ github.event_name == 'push' && fromJSON('["linux/amd64"]') || fromJSON('["linux/amd64","linux/arm64"]') }}
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up QEMU (for cross-arch builds)
-        if: matrix.platform != 'linux/amd64'
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -60,12 +68,14 @@ jobs:
           push: false
           load: true
           tags: polymer-gui:ci
+          build-args: |
+            POLYMER_GUI_VERSION=${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
 
-      - name: Smoke test - compiled modules and app modules importable
+      - name: Smoke test - Polymer imports, app modules parse
         run: |
-          docker run --rm --platform ${{ matrix.platform }} polymer-gui:ci \
+          docker run --rm polymer-gui:ci \
             micromamba run -n polymer python -c "import polymer.polymer_main, polymer.water; from polymer.main import run_atm_corr; print('Polymer OK')"
-          docker run --rm --platform ${{ matrix.platform }} --entrypoint bash polymer-gui:ci -lc \
-            "micromamba run -n polymer python -c 'import ast; [ast.parse(open(f).read()) for f in [\"/app/streamlit_app.py\",\"/app/polymer_job.py\",\"/app/job_runner.py\",\"/app/uploads.py\",\"/app/quicklook.py\",\"/app/i18n.py\",\"/app/credentials.py\",\"/app/setup_status.py\",\"/app/params_schema.py\"]]; print(\"app OK\")'"
+          docker run --rm --entrypoint bash polymer-gui:ci -lc \
+            "cd /app && micromamba run -n polymer python -c 'import ast, glob; [ast.parse(open(f).read()) for f in glob.glob(\"*.py\")]; print(\"app OK\")'"

@@ -162,20 +162,28 @@ gratuito. Senza, funziona comunque usando dati interni.
 
    Accettati: cartelle `.SEN3` (Sentinel-3 OLCI), cartelle `.SAFE`
    (Sentinel-2 MSI), file `.he5` (PRISMA), file `.N1` (MERIS), file `.L1C`
-   (MODIS / VIIRS / SeaWiFS).
+   (MODIS / VIIRS / SeaWiFS). In alternativa usa il pannello **Carica un
+   prodotto** nella scheda Elaborazione: trascina uno `.zip` per i prodotti a
+   cartella, o un prodotto a file singolo.
 
 2. Torna al browser e **ricarica la pagina** (premi **F5**, o ⌘R su Mac).
 3. Clicca la scheda **Elaborazione**:
    - **Prodotti Level-1 da elaborare** — clicca per sceglierne uno (o più, per
      l'elaborazione in lotto).
-   - **Sensore** — lascia **auto** per la maggior parte dei prodotti. Per
-     **PRISMA** e **HICO** scegli tu il sensore dall'elenco.
+   - **Sensore** — lascia **auto**; la pagina mostra il sensore rilevato. Per
+     **PRISMA** e **HICO** scegli tu dall'elenco.
    - **Formato di output** — `netcdf4` (consigliato) o `hdf4`.
    - **Parametri comuni** — cambiali solo se serve (numero di core CPU, un
      eventuale ritaglio della scena).
-4. Clicca **▶ Avvia Polymer**. Il testo di avanzamento scorre nella pagina.
-5. Al termine il file risultato è nella cartella **`data/output`** e nella pagina
-   compare un'immagine di anteprima.
+4. Clicca **Avvia Polymer**. Durante l'elaborazione si aggiornano una barra di
+   avanzamento e il log; un pulsante **Annulla** la interrompe. Continua anche
+   se cambi scheda.
+5. Al termine il file risultato è nella cartella **`data/output`**. Se hai
+   elaborato più prodotti, una tabella riepilogo mostra quali sono riuscite e un
+   pulsante ripete solo i falliti.
+6. Apri la scheda **Risultati** per sfogliare gli output: scegli un file, scegli
+   una variabile (o la vista automatica RGB / clorofilla), vedi un istogramma e
+   clicca **Scarica questo file**.
 
 La scheda **Cronologia** mostra una tabella delle elaborazioni precedenti.
 

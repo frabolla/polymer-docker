@@ -1,8 +1,9 @@
-# Contesto di build minimale: servono solo sorgente Polymer, environment.yml,
-# la cartella docker/ e la licenza.
+# Minimal build context: only the Polymer source, environment.yml, the docker/
+# folder and the licence are needed.
 data/
 tests/
 docs/
+docker/tests/
 build/
 .git/
 .github/

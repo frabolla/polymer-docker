@@ -81,8 +81,15 @@ _STRINGS: dict[str, dict[str, str]] = {
               "HYGEOS. Software originale: "
               "[github.com/hygeos/polymer](https://github.com/hygeos/polymer).",
     },
+    "app.author": {
+        "en": "Docker packaging and interface by **Francesco Tarini** "
+              "([@frabolla](https://github.com/frabolla)).",
+        "it": "Pacchetto Docker e interfaccia realizzati da **Francesco Tarini** "
+              "([@frabolla](https://github.com/frabolla)).",
+    },
     "sidebar.language": {"en": "Language", "it": "Lingua"},
     "sidebar.version": {"en": "Version {v}", "it": "Versione {v}"},
+    "sidebar.freespace": {"en": "Free space: {mb:.0f} MB", "it": "Spazio libero: {mb:.0f} MB"},
     "tab.process": {"en": "Processing", "it": "Elaborazione"},
     "tab.config": {"en": "Setup", "it": "Configurazione"},
     "tab.guide": {"en": "Guide", "it": "Guida"},
@@ -109,6 +116,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "it": "{ok} riuscite, {fail} fallite su {n}.",
     },
     "batch.dismiss": {"en": "Clear", "it": "Nascondi"},
+    "batch.rerun_failed": {"en": "Re-run the {n} failed", "it": "Ripeti i {n} falliti"},
 
     # -- upload
     "upload.header": {"en": "Upload a product", "it": "Carica un prodotto"},
@@ -130,6 +138,11 @@ _STRINGS: dict[str, dict[str, str]] = {
     "results.info": {"en": "{name} — {size:.1f} MB — {when}", "it": "{name} — {size:.1f} MB — {when}"},
     "results.variable": {"en": "Variable to preview", "it": "Variabile da visualizzare"},
     "results.auto": {"en": "auto (RGB / chlorophyll)", "it": "auto (RGB / clorofilla)"},
+    "results.download": {"en": "Download this file", "it": "Scarica questo file"},
+    "results.too_big": {
+        "en": "File is {size:.0f} MB — copy it from the `data/output` folder instead.",
+        "it": "File di {size:.0f} MB — copialo dalla cartella `data/output`.",
+    },
 
     # -- in-app guide
     "guide.intro": {
@@ -355,6 +368,23 @@ _STRINGS: dict[str, dict[str, str]] = {
         "en": "No credentials required for this choice.",
         "it": "Nessuna credenziale richiesta per questa scelta.",
     },
+    "config.cred_test": {"en": "Verify", "it": "Verifica"},
+    "config.cred_test_ok": {
+        "en": "Credentials look valid.",
+        "it": "Le credenziali sembrano valide.",
+    },
+    "config.cred_test_bad": {
+        "en": "Verification failed: {msg}",
+        "it": "Verifica fallita: {msg}",
+    },
+    "config.cred_test_skip": {
+        "en": "Could not verify (no network?): {msg}",
+        "it": "Impossibile verificare (rete assente?): {msg}",
+    },
+    "config.low_disk": {
+        "en": "Only {mb:.0f} MB free in `data/`. Free up space before downloading.",
+        "it": "Solo {mb:.0f} MB liberi in `data/`. Libera spazio prima di scaricare.",
+    },
 
     # -- processing tab
     "process.incomplete": {
@@ -383,6 +413,18 @@ _STRINGS: dict[str, dict[str, str]] = {
         "en": "The {sensor} sensor is not auto-detected: select it explicitly here.",
         "it": "Il sensore {sensor} non è rilevabile automaticamente: selezionalo qui "
               "esplicitamente.",
+    },
+    "process.detected": {
+        "en": "Auto-detected sensor: **{sensor}**",
+        "it": "Sensore rilevato: **{sensor}**",
+    },
+    "process.detect_fail": {
+        "en": "Could not auto-detect the sensor from the file name — pick one below.",
+        "it": "Impossibile rilevare il sensore dal nome file — scegline uno qui sotto.",
+    },
+    "process.low_disk": {
+        "en": "Only {mb:.0f} MB free in `data/`. Free up space before running.",
+        "it": "Solo {mb:.0f} MB liberi in `data/`. Libera spazio prima di elaborare.",
     },
     "process.ancillary": {"en": "Auxiliary meteorological data", "it": "Dati meteo ausiliari"},
     "process.common_params": {"en": "**Common parameters**", "it": "**Parametri comuni**"},

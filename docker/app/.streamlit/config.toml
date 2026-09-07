@@ -1,0 +1,21 @@
+# Streamlit configuration for the Polymer interface.
+# Picked up because the entrypoint runs `streamlit run` from /app.
+
+[theme]
+base = "light"
+primaryColor = "#2E7D9A"          # calm ocean blue-teal
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F2F5F7"
+textColor = "#1E2A32"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
+showErrorDetails = false
+
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = true
+fileWatcherType = "none"

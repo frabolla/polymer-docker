@@ -161,18 +161,26 @@ account. Without one, it still works using built-in data.
    `.he5` files (PRISMA), `.N1` files (MERIS), `.L1C` files
    (MODIS / VIIRS / SeaWiFS).
 
+   You can also use the **Upload a product** panel on the Processing tab: drop a
+   `.zip` for folder products (`.SEN3` / `.SAFE`), or a single-file product.
+
 2. Go back to the browser and **reload the page** (press **F5**, or ⌘R on Mac).
 3. Click the **Processing** tab:
    - **Level-1 products to process** — click to pick one (or several, for batch
      processing).
-   - **Sensor** — leave **auto** for most products. For **PRISMA** and **HICO**
-     pick the sensor from the list yourself.
+   - **Sensor** — leave **auto**; the page shows the detected sensor. For
+     **PRISMA** and **HICO** pick it from the list yourself.
    - **Output format** — `netcdf4` (recommended) or `hdf4`.
    - **Common parameters** — change only if you need to (number of CPU cores, an
      optional crop of the scene).
-4. Click **▶ Run Polymer**. Progress text scrolls on the page.
-5. When it finishes, the result file is in the **`data/output`** folder and a
-   preview image is shown on the page.
+4. Click **Run Polymer**. A progress bar and the log update while it runs; a
+   **Cancel** button stops it. It keeps going if you switch tabs.
+5. When it finishes, the result file is in the **`data/output`** folder. If you
+   ran several products, a summary table shows which succeeded and a button
+   re-runs just the failed ones.
+6. Open the **Results** tab to browse outputs: pick a file, choose a variable
+   (or the automatic RGB / chlorophyll view), see a histogram, and click
+   **Download this file**.
 
 The **History** tab shows a table of your previous runs.
 

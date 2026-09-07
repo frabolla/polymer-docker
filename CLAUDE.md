@@ -20,8 +20,10 @@ parties "in any form, modified or unmodified". Consequences:
 
 - **Never publish a pre-built image** to any public registry (GHCR, Docker Hub…).
   Only the *build recipe* is shipped; each user builds locally.
-- The CI workflow (`.github/workflows/docker-build.yml`) builds the image to catch
-  breakage but **must never push** it.
+- The CI workflow (`.github/workflows/docker-build.yml`) runs the tests, then
+  builds the image on native amd64 and arm64 runners to catch breakage — it
+  **must never push** the image. It has a `concurrency` group so a new push
+  cancels the previous run.
 - The app shows `LICENCE.TXT` and requires the user to accept it on first run.
 
 ## Layout of the added code (`docker/`)
@@ -90,10 +92,16 @@ docker/
 ```bash
 # build + run (from repo root)
 docker compose -f docker/docker-compose.yml up -d --build
-# UI: http://localhost:8501   health: /_stcore/health
+# UI: http://localhost:8501 (bound to 127.0.0.1)   health: /_stcore/health
 
 # stop
 docker compose -f docker/docker-compose.yml down
+
+# app unit tests (no Docker; also run in CI before the build)
+pytest docker/tests -q
+# or inside the image:
+docker run --rm --entrypoint micromamba -v "$PWD:/src:ro" -w /src polymer-gui:local \
+  run -n polymer python -m pytest docker/tests -q
 
 # quick import check inside the image
 docker run --rm polymer-gui:local micromamba run -n polymer \
@@ -138,7 +146,20 @@ docker run --rm polymer-gui:local micromamba run -n polymer \
   chlorophyll, or a chosen variable + histogram). Used by the Results tab.
 - `setup_status.verify_auxdata()` — checks required aux files exist and are not
   truncated (min sizes); `auxdata_present()` uses it. `app_version()` reads
-  `POLYMER_GUI_VERSION` env, then `/app/VERSION`, then "dev".
+  `POLYMER_GUI_VERSION` env, then `/app/VERSION`, then "dev". `free_space_mb()`
+  gates the Run / Download-auxdata buttons.
+- `job_runner` also: `configure(dir)` (tests repoint paths), `_prune()` (keep
+  `KEEP_RUNS` run file sets, cap `_jobs.log` at `JOBS_LOG_MAX_LINES`),
+  `failed_cfgs(batch_id)` (for the "re-run failed" button; batch item lists are
+  saved as `_run/batch_<id>.json`).
+- `credentials.test_earthdata()` / `test_cds()` — best-effort HTTP checks used by
+  the "Verify" buttons; return `("ok"|"bad"|"skip", detail)`, never block saving.
+- Theme + chrome: `docker/app/.streamlit/config.toml` (light theme, minimal
+  toolbar) is read because `entrypoint.sh` does `cd /app` before `streamlit run`.
+  Favicon is `:material/water_drop:` (no emoji).
+- Tests: `docker/tests/` (pytest, no Docker needed) — run in CI's `test` job
+  before the image builds. Keep them green; `test_i18n.py` enforces the
+  en/it + placeholder consistency that used to be a manual check.
 
 ## Known limitations / open items
 

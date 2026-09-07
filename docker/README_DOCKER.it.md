@@ -64,16 +64,23 @@ Quando è pronto, il browser si apre da solo su **<http://localhost:8501>**.
 
 ## 5. Elabora un prodotto
 
-1. Copia i tuoi prodotti **Level-1** nella cartella `data/input/` che è comparsa
-   accanto al repository (cartelle `.SEN3` per Sentinel-3 OLCI, `.SAFE` per
-   Sentinel-2 MSI, file `.he5` per PRISMA, `.N1` per MERIS, `.L1C` per MODIS/VIIRS/SeaWiFS…).
-2. Nella scheda **Elaborazione**: seleziona il prodotto, il sensore (`auto` va bene
-   nella maggior parte dei casi; per **PRISMA** e **HICO** scegli il sensore a mano),
-   il formato di output e i parametri.
-3. Premi **▶ Avvia Polymer**. Il registro di elaborazione scorre a schermo.
-4. Al termine trovi il risultato in `data/output/` e un'anteprima nell'interfaccia.
-
-Puoi selezionare **più prodotti insieme** per l'elaborazione in lotto.
+1. Porta i tuoi prodotti **Level-1** in `data/input/`, copiandoli nella cartella
+   comparsa accanto al repository (cartelle `.SEN3` per Sentinel-3 OLCI, `.SAFE`
+   per Sentinel-2 MSI, `.he5` per PRISMA, `.N1` per MERIS, `.L1C` per
+   MODIS/VIIRS/SeaWiFS…) **oppure** con il pannello **Carica un prodotto** nella
+   scheda Elaborazione (trascina uno `.zip` per i prodotti a cartella, o un
+   prodotto a file singolo).
+2. Nella scheda **Elaborazione**: seleziona il prodotto; con sensore `auto`
+   l'interfaccia mostra il sensore rilevato (per **PRISMA** e **HICO** sceglilo a
+   mano); imposta formato di output e parametri.
+3. Premi **Avvia Polymer**. Durante l'elaborazione si aggiornano una barra di
+   avanzamento e il log; puoi **Annullare** in qualsiasi momento. Continua anche
+   se cambi scheda.
+4. Seleziona **più prodotti insieme** per l'elaborazione in lotto — una tabella
+   riepilogo mostra quali sono riuscite e un pulsante ripete solo i falliti.
+5. Sfoglia gli output nella scheda **Risultati**: scegli un file, scegli una
+   variabile (o la vista automatica RGB / clorofilla), vedi un istogramma e
+   scarica il file.
 
 ## 6. Fermare / aggiornare
 

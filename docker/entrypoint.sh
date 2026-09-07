@@ -5,6 +5,7 @@ set -euo pipefail
 
 echo "==> Preparing data folders in /data ..."
 mkdir -p /data/input /data/output /data/auxdata/static /data/ancillary /data/config
+chmod 700 /data/config || true
 
 # Credentials (.netrc for NASA Earthdata, .cdsapirc for Copernicus CDS) are saved
 # by the interface into /data/config and must be visible from $HOME.
@@ -23,12 +24,10 @@ if ! micromamba run -n polymer python -c "import polymer.polymer_main" 2>/dev/nu
     exit 1
 fi
 
+# Run from /app so Streamlit reads /app/.streamlit/config.toml (theme, etc.).
+cd /app
+
 echo "==> Interface available at http://localhost:8501"
 exec micromamba run -n polymer streamlit run /app/streamlit_app.py \
     --server.port=8501 \
-    --server.address=0.0.0.0 \
-    --server.headless=true \
-    --browser.gatherUsageStats=false \
-    --client.toolbarMode=minimal \
-    --client.showErrorDetails=false \
-    --server.fileWatcherType=none
+    --server.address=0.0.0.0
