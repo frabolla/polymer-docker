@@ -29,4 +29,6 @@ exec micromamba run -n polymer streamlit run /app/streamlit_app.py \
     --server.address=0.0.0.0 \
     --server.headless=true \
     --browser.gatherUsageStats=false \
+    --client.toolbarMode=minimal \
+    --client.showErrorDetails=false \
     --server.fileWatcherType=none

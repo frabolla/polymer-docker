@@ -1,6 +1,9 @@
 # Polymer in Docker, con interfaccia grafica
 
 > 🇬🇧 English version: [README_DOCKER.md](README_DOCKER.md)
+>
+> 🐣 Non hai mai usato Docker? Segui la guida passo-passo, clic per clic:
+> **[HOWTO.it.md](HOWTO.it.md)** (🇬🇧 [HOWTO.md](HOWTO.md)).
 
 Questa cartella contiene tutto il necessario per usare **Polymer** senza installare
 Python, senza compilare nulla e senza usare la riga di comando. I parametri si

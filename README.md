@@ -12,6 +12,20 @@
 
 --------------------------------------------------
 
+> ## This repository is a fork
+>
+> This is a **fork** of the open-source Polymer atmospheric-correction algorithm
+> by HYGEOS. Original software: **<https://github.com/hygeos/polymer>**.
+>
+> What this fork adds: a **Docker container with a graphical web interface**
+> ([`docker/`](docker/)) so Polymer can be installed and used without setting up
+> a Python environment or the command line. The Polymer algorithm itself is
+> unchanged and is still governed by `LICENCE.TXT` (free for non-commercial use,
+> **not redistributable** — so only the build recipe is shared, and each user
+> builds the image locally).
+>
+> Jump to: [Run with the graphical interface](#10-docker-container-with-a-graphical-interface-easiest)
+
 
 This is the python/cython implementation of the Polymer atmospheric correction
 algorithm.
@@ -26,9 +40,39 @@ http://www.opticsinfobase.org/oe/abstract.cfm?uri=oe-19-10-9783
 If you just want to *run* Polymer without setting up a Python environment or
 compiling anything, use the Docker packaging in [`docker/`](docker/): install
 Docker Desktop, double-click a launcher script, and drive Polymer from a web page
-in your browser. The interface is in English with an Italian option. See
-[`docker/README_DOCKER.md`](docker/README_DOCKER.md)
-([italiano](docker/README_DOCKER.it.md)).
+in your browser. The interface is in English with an Italian option.
+
+**First run (once):**
+
+1. Install **Docker Desktop** and wait until it says *Engine running*.
+2. Download this repository (green **Code → Download ZIP**) and unzip it.
+3. Double-click the launcher for your system in `docker/launchers/`
+   (`Start-Polymer-Windows.bat` or `Start-Polymer-macOS-Linux.command`). The
+   first build takes 10–20 min (it downloads ~4 GB and compiles the modules).
+4. The browser opens at <http://localhost:8501>. In the page: accept the terms →
+   **Setup** tab → *Download auxiliary data* (~1 GB, once) → optionally enter a
+   NASA Earthdata / Copernicus CDS account.
+5. Put your Level-1 products in the `data/input/` folder, reload, open the
+   **Processing** tab, pick a product, click **Run Polymer**. Results land in
+   `data/output/`.
+
+**After an update (no full rebuild):**
+
+1. Stop the container (Docker Desktop → *Containers* → *Stop*).
+2. Overwrite the project folder with the new version (new ZIP, or `git pull`),
+   keeping the `data/` folder.
+3. Run the launcher again — Docker reuses the cached layers and only rebuilds
+   what changed (usually under a minute). Auxiliary data, credentials, language
+   and history persist in `data/`.
+
+**Docs:**
+
+- Never used Docker? Click-by-click guide: [`docker/HOWTO.md`](docker/HOWTO.md)
+  ([italiano](docker/HOWTO.it.md)).
+- Reference: [`docker/README_DOCKER.md`](docker/README_DOCKER.md)
+  ([italiano](docker/README_DOCKER.it.md)).
+
+The in-app **Guide** tab repeats these first-run and update steps.
 
 Note: the resulting image must **not** be redistributed (see `LICENCE.TXT`); every
 user builds it locally from this repository.

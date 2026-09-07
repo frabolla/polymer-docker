@@ -70,13 +70,115 @@ def t(key: str, **fmt) -> str:
 _STRINGS: dict[str, dict[str, str]] = {
     # -- generic / layout
     "app.caption": {
-        "en": "Atmospheric correction of ocean colour — HYGEOS",
-        "it": "Correzione atmosferica del colore dell'oceano — HYGEOS",
+        "en": "Atmospheric correction of ocean colour",
+        "it": "Correzione atmosferica del colore dell'oceano",
+    },
+    "app.fork_note": {
+        "en": "This tool is a fork of the open-source **Polymer** algorithm by "
+              "HYGEOS. Original software: "
+              "[github.com/hygeos/polymer](https://github.com/hygeos/polymer).",
+        "it": "Questo strumento è un fork dell'algoritmo open-source **Polymer** di "
+              "HYGEOS. Software originale: "
+              "[github.com/hygeos/polymer](https://github.com/hygeos/polymer).",
     },
     "sidebar.language": {"en": "Language", "it": "Lingua"},
     "tab.process": {"en": "Processing", "it": "Elaborazione"},
     "tab.config": {"en": "Setup", "it": "Configurazione"},
+    "tab.guide": {"en": "Guide", "it": "Guida"},
     "tab.history": {"en": "History", "it": "Cronologia"},
+
+    # -- in-app guide
+    "guide.intro": {
+        "en": "Polymer runs entirely on your computer, inside a Docker container. "
+              "You drive it from this page; there is nothing to type on a command "
+              "line.",
+        "it": "Polymer gira interamente sul tuo computer, dentro un container "
+              "Docker. Lo comandi da questa pagina; non c'è nulla da digitare a "
+              "riga di comando.",
+    },
+    "guide.first_header": {"en": "First time you start it", "it": "La prima volta che lo avvii"},
+    "guide.first_body": {
+        "en": "1. **Accept the Terms of use** (done — this is the first page).\n"
+              "2. Open the **Setup** tab and click **Download / update auxiliary "
+              "data**. This fetches about 1 GB of reference tables and is needed "
+              "only once.\n"
+              "3. *(Optional)* In **Setup**, enter a **NASA Earthdata** or "
+              "**Copernicus CDS** account to let Polymer download weather data "
+              "automatically. Without it, built-in climatologies are used.\n"
+              "4. Put your **Level-1** products into the `data/input` folder next "
+              "to the project, then reload this page.\n"
+              "5. Open **Processing**, pick a product and a sensor (`auto` is "
+              "usually right), then click **Run Polymer**.\n"
+              "6. Results are written to the `data/output` folder; a preview is "
+              "shown here.",
+        "it": "1. **Accetta i Termini d'uso** (fatto — è questa prima pagina).\n"
+              "2. Apri la scheda **Configurazione** e clicca **Scarica / aggiorna "
+              "dati ausiliari**. Scarica circa 1 GB di tabelle di riferimento e "
+              "serve una sola volta.\n"
+              "3. *(Facoltativo)* In **Configurazione**, inserisci un account "
+              "**NASA Earthdata** o **Copernicus CDS** per far scaricare a Polymer "
+              "i dati meteo in automatico. Senza, si usano le climatologie "
+              "interne.\n"
+              "4. Metti i tuoi prodotti **Level-1** nella cartella `data/input` "
+              "accanto al progetto, poi ricarica questa pagina.\n"
+              "5. Apri **Elaborazione**, scegli un prodotto e un sensore (`auto` "
+              "di solito va bene), poi clicca **Avvia Polymer**.\n"
+              "6. I risultati vengono scritti nella cartella `data/output`; qui "
+              "compare un'anteprima.",
+    },
+    "guide.update_header": {
+        "en": "After an update (no full rebuild needed)",
+        "it": "Dopo un aggiornamento (senza ricostruire tutto)",
+    },
+    "guide.update_body": {
+        "en": "When a new version of this project is released, you do **not** "
+              "rebuild the container from scratch:\n\n"
+              "1. Stop the container (Docker Desktop → Containers → Stop), or close "
+              "it.\n"
+              "2. Download the new version (new ZIP from GitHub, or `git pull`) "
+              "over the project folder, keeping your `data/` folder.\n"
+              "3. Start it again with the usual launcher. Docker rebuilds **only "
+              "the changed layers** — usually under a minute — because the heavy "
+              "steps (scientific libraries, compiled modules) are cached.\n\n"
+              "Your downloaded auxiliary data, credentials, language and history "
+              "all live in `data/` and are kept across updates. You only need to "
+              "download the auxiliary data again if this page says it is missing.",
+        "it": "Quando esce una nuova versione di questo progetto **non** si "
+              "ricostruisce il container da zero:\n\n"
+              "1. Ferma il container (Docker Desktop → Containers → Stop), oppure "
+              "chiudilo.\n"
+              "2. Scarica la nuova versione (nuovo ZIP da GitHub, o `git pull`) "
+              "sopra la cartella del progetto, tenendo la cartella `data/`.\n"
+              "3. Riavvialo con il solito launcher. Docker ricostruisce **solo i "
+              "livelli cambiati** — di solito meno di un minuto — perché i passi "
+              "pesanti (librerie scientifiche, moduli compilati) sono in cache.\n\n"
+              "I dati ausiliari scaricati, le credenziali, la lingua e la "
+              "cronologia stanno tutti in `data/` e si conservano tra un "
+              "aggiornamento e l'altro. Devi riscaricare i dati ausiliari solo se "
+              "questa pagina segnala che mancano.",
+    },
+    "guide.about_header": {"en": "About this tool", "it": "Informazioni su questo strumento"},
+    "guide.about_body": {
+        "en": "This is a **fork** of the open-source Polymer atmospheric-correction "
+              "algorithm by HYGEOS, packaged as a Docker container with this "
+              "graphical interface for easier installation.\n\n"
+              "- Original software: "
+              "[github.com/hygeos/polymer](https://github.com/hygeos/polymer)\n"
+              "- Polymer is free for **non-commercial use** and **must not be "
+              "redistributed** (see the Terms of use on the first page).\n"
+              "- Scientific reference: Steinmetz, Deschamps & Ramon, *Atmospheric "
+              "correction in presence of sun glint*, Opt. Express 19 (2011).",
+        "it": "Questo è un **fork** dell'algoritmo open-source di correzione "
+              "atmosferica Polymer di HYGEOS, impacchettato come container Docker "
+              "con questa interfaccia grafica per semplificarne l'installazione.\n\n"
+              "- Software originale: "
+              "[github.com/hygeos/polymer](https://github.com/hygeos/polymer)\n"
+              "- Polymer è gratuito per **uso non commerciale** e **non può essere "
+              "ridistribuito** (vedi i Termini d'uso nella prima pagina).\n"
+              "- Riferimento scientifico: Steinmetz, Deschamps & Ramon, "
+              "*Atmospheric correction in presence of sun glint*, Opt. Express 19 "
+              "(2011).",
+    },
 
     # -- licence gate
     "licence.title": {"en": "Polymer — Terms of use", "it": "Polymer — Termini d'uso"},
@@ -92,6 +194,29 @@ _STRINGS: dict[str, dict[str, str]] = {
         "it": "Ho letto e accetto i Termini d'uso di Polymer",
     },
     "licence.continue": {"en": "Continue", "it": "Continua"},
+    "licence.steps_header": {
+        "en": "How to use this tool, in short",
+        "it": "Come si usa questo strumento, in breve",
+    },
+    "licence.steps_body": {
+        "en": "1. Accept the terms below.\n"
+              "2. **Setup** tab → download the auxiliary data (once, ~1 GB).\n"
+              "3. Put your Level-1 products in the `data/input` folder, reload.\n"
+              "4. **Processing** tab → choose the product, click *Run Polymer*.\n"
+              "5. Get the results from `data/output`.\n\n"
+              "The **Guide** tab has the full steps and what to do after an "
+              "update.",
+        "it": "1. Accetta i termini qui sotto.\n"
+              "2. Scheda **Configurazione** → scarica i dati ausiliari (una volta, "
+              "~1 GB).\n"
+              "3. Metti i tuoi prodotti Level-1 nella cartella `data/input`, "
+              "ricarica.\n"
+              "4. Scheda **Elaborazione** → scegli il prodotto, clicca *Avvia "
+              "Polymer*.\n"
+              "5. Prendi i risultati da `data/output`.\n\n"
+              "La scheda **Guida** ha i passaggi completi e cosa fare dopo un "
+              "aggiornamento.",
+    },
 
     # -- sidebar status
     "status.header": {"en": "Setup status", "it": "Stato configurazione"},
@@ -235,7 +360,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "en": "Empty = automatic name based on the input product.",
         "it": "Vuoto = nome automatico basato sul prodotto di input.",
     },
-    "process.run": {"en": "▶ Run Polymer", "it": "▶ Avvia Polymer"},
+    "process.run": {"en": "Run Polymer", "it": "Avvia Polymer"},
     "process.processing_of": {"en": "**Processing:** `{input}`", "it": "**Elaborazione di:** `{input}`"},
     "process.failed": {
         "en": "Processing failed (code {rc}). See the log above.",

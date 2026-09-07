@@ -39,7 +39,24 @@ OUTPUT_DIR = Path("/data/output")
 JOBS_LOG = OUTPUT_DIR / "_jobs.log"
 JOB_TMP = CONFIG_DIR / "_job.json"
 
-st.set_page_config(page_title="Polymer", page_icon="🌊", layout="wide")
+st.set_page_config(page_title="Polymer", page_icon="P", layout="wide")
+
+# Hide Streamlit's own chrome (the "Deploy" button, the hamburger menu and the
+# "Made with Streamlit" footer) so the page reads as a standalone tool.
+st.markdown(
+    """
+    <style>
+      [data-testid="stToolbar"] {display: none !important;}
+      [data-testid="stToolbarActions"] {display: none !important;}
+      [data-testid="stAppDeployButton"] {display: none !important;}
+      [data-testid="stDecoration"] {display: none !important;}
+      [data-testid="stStatusWidget"] {display: none !important;}
+      #MainMenu {visibility: hidden !important;}
+      footer {visibility: hidden !important;}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 # --------------------------------------------------------------------------- util
@@ -105,12 +122,22 @@ def pick_language() -> None:
     i18n.set_lang(choice)
 
 
+# Plain typographic status marks (no emoji).
+_MARK_OK = "✓"       # check mark
+_MARK_TODO = "–"     # en dash
+
+
 # ------------------------------------------------------------------ licence gate
 def licence_gate() -> bool:
     if LICENCE_FLAG.exists():
         return True
-    st.title("🌊 " + i18n.t("licence.title"))
+    st.title(i18n.t("licence.title"))
+    st.caption(i18n.t("app.fork_note"))
     st.warning(i18n.t("licence.warning"))
+
+    with st.expander(i18n.t("licence.steps_header"), expanded=True):
+        st.markdown(i18n.t("licence.steps_body"))
+
     if LICENCE_FILE.exists():
         st.text_area("LICENCE.TXT", LICENCE_FILE.read_text(), height=320)
     agree = st.checkbox(i18n.t("licence.checkbox"))
@@ -122,24 +149,27 @@ def licence_gate() -> bool:
 
 
 # ---------------------------------------------------------------- sidebar status
+def _mark(ok: bool) -> str:
+    return _MARK_OK if ok else _MARK_TODO
+
+
 def sidebar_status() -> None:
     st.sidebar.header(i18n.t("status.header"))
 
-    ok_cy = status.cython_modules_ok()
-    st.sidebar.write(("✅" if ok_cy else "❌") + " " + i18n.t("status.modules"))
+    st.sidebar.write(_mark(status.cython_modules_ok()) + " " + i18n.t("status.modules"))
 
     ok_aux = status.auxdata_present()
     st.sidebar.write(
-        ("✅" if ok_aux else "⬇️") + " " + i18n.t("status.auxdata", size=status.auxdata_size_mb())
+        _mark(ok_aux) + " " + i18n.t("status.auxdata", size=status.auxdata_size_mb())
     )
 
     cs = cred.status()
     st.sidebar.write(
-        ("✅" if cs["earthdata"] else "➖")
+        _mark(cs["earthdata"])
         + " " + i18n.t("status.earthdata")
         + (f" ({cs['earthdata_login']})" if cs["earthdata"] else "")
     )
-    st.sidebar.write(("✅" if cs["cds"] else "➖") + " " + i18n.t("status.cds"))
+    st.sidebar.write(_mark(cs["cds"]) + " " + i18n.t("status.cds"))
 
     st.sidebar.divider()
     if not ok_aux:
@@ -414,7 +444,22 @@ def tab_process() -> None:
             )
             run_job(cfg)
             progress.progress((idx + 1) / len(selected))
-        st.balloons()
+
+
+# ------------------------------------------------------------------- guide tab
+def tab_guide() -> None:
+    st.write(i18n.t("guide.intro"))
+
+    st.subheader(i18n.t("guide.first_header"))
+    st.markdown(i18n.t("guide.first_body"))
+
+    st.divider()
+    st.subheader(i18n.t("guide.update_header"))
+    st.markdown(i18n.t("guide.update_body"))
+
+    st.divider()
+    st.subheader(i18n.t("guide.about_header"))
+    st.markdown(i18n.t("guide.about_body"))
 
 
 # ------------------------------------------------------------------ history tab
@@ -437,16 +482,24 @@ def main() -> None:
     if not licence_gate():
         return
     sidebar_status()
-    st.title("🌊 Polymer")
+    st.title("Polymer")
     st.caption(i18n.t("app.caption"))
+    st.caption(i18n.t("app.fork_note"))
 
-    t_proc, t_conf, t_hist = st.tabs(
-        [i18n.t("tab.process"), i18n.t("tab.config"), i18n.t("tab.history")]
+    t_proc, t_conf, t_guide, t_hist = st.tabs(
+        [
+            i18n.t("tab.process"),
+            i18n.t("tab.config"),
+            i18n.t("tab.guide"),
+            i18n.t("tab.history"),
+        ]
     )
     with t_proc:
         tab_process()
     with t_conf:
         tab_config()
+    with t_guide:
+        tab_guide()
     with t_hist:
         tab_history()
 
