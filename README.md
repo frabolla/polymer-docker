@@ -1,423 +1,122 @@
+# Polymer — Docker container with a graphical interface
 
-  POLYMER
-  =======
+Run **Polymer** (atmospheric correction of sun-glint contaminated ocean colour
+observations) from a web page in your browser, with no Python environment and no
+command line.
 
-  ATMOSPHERIC CORRECTION OF SUN-GLINT
-  CONTAMINATED OCEAN COLOUR OBSERVATIONS
-
-  François Steinmetz  
-  Pierre-Yves Deschamps  
-  Didier Ramon  
-  [HYGEOS](www.hygeos.com)
-
---------------------------------------------------
-
-> ## This repository is a fork
+> ### This repository is a fork
 >
-> This is a **fork** of the open-source Polymer atmospheric-correction algorithm
-> by HYGEOS. Original software: **<https://github.com/hygeos/polymer>**.
+> This is a **fork** of the open-source Polymer algorithm by HYGEOS.
+> Original software and full scientific/algorithm documentation:
+> **<https://github.com/hygeos/polymer>**.
 >
-> What this fork adds: a **Docker container with a graphical web interface**
-> ([`docker/`](docker/)) so Polymer can be installed and used without setting up
-> a Python environment or the command line. The Polymer algorithm itself is
-> unchanged and is still governed by `LICENCE.TXT` (free for non-commercial use,
-> **not redistributable** — so only the build recipe is shared, and each user
-> builds the image locally).
+> This fork adds only the packaging in [`docker/`](docker/) — a Docker image plus
+> a graphical interface. The Polymer algorithm itself is unchanged.
 >
-> Jump to: [Run with the graphical interface](#10-docker-container-with-a-graphical-interface-easiest)
+> Polymer is **free for non-commercial use** and **must not be redistributed**
+> (see [`LICENCE.TXT`](LICENCE.TXT)). For that reason no ready-made image is
+> published: you build it locally from this repository, and accept the terms on
+> first run.
 
+---
 
-This is the python/cython implementation of the Polymer atmospheric correction
-algorithm.
-http://www.opticsinfobase.org/oe/abstract.cfm?uri=oe-19-10-9783
+## First run (once)
 
+1. Install **Docker Desktop** and wait until it shows *Engine running*.
+   - Windows: <https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe>
+   - macOS (Apple Silicon): <https://desktop.docker.com/mac/main/arm64/Docker.dmg>
+   - macOS (Intel): <https://desktop.docker.com/mac/main/amd64/Docker.dmg>
+   - Linux: <https://docs.docker.com/desktop/setup/install/linux/>
+2. Download this repository: green **Code → Download ZIP**, then unzip it.
+3. Open `docker/launchers/` and double-click the launcher for your system:
+   - **Windows** → `Start-Polymer-Windows.bat`
+   - **macOS / Linux** → `Start-Polymer-macOS-Linux.command`
+     (macOS first time: right-click → **Open**)
 
+   The first build takes **10–20 minutes** (it downloads ~4 GB of scientific
+   libraries and compiles the modules). This happens only once.
+4. The browser opens at **<http://localhost:8501>**. In the page:
+   - accept the **Terms of use**;
+   - **Setup** tab → **Download auxiliary data** (~1 GB, once);
+   - *(optional)* enter a **NASA Earthdata** or **Copernicus CDS** account so
+     Polymer can fetch weather data automatically (otherwise built-in
+     climatologies are used).
+5. Put your **Level-1** products in the `data/input/` folder next to the project
+   (`.SEN3` folders for Sentinel-3 OLCI, `.SAFE` for Sentinel-2 MSI, `.he5` for
+   PRISMA, `.N1` for MERIS, `.L1C` for MODIS/VIIRS/SeaWiFS). Reload the page.
+6. **Processing** tab → pick a product and a sensor (`auto` is usually right) →
+   **Run Polymer**. Results are written to `data/output/`, with a preview shown
+   in the page.
 
-## 1. Installation
+## After an update (no full rebuild)
 
-### 1.0 Docker container with a graphical interface (easiest)
+When a new version of this project is released you do **not** rebuild from
+scratch:
 
-If you just want to *run* Polymer without setting up a Python environment or
-compiling anything, use the Docker packaging in [`docker/`](docker/): install
-Docker Desktop, double-click a launcher script, and drive Polymer from a web page
-in your browser. The interface is in English with an Italian option.
-
-**First run (once):**
-
-1. Install **Docker Desktop** and wait until it says *Engine running*.
-2. Download this repository (green **Code → Download ZIP**) and unzip it.
-3. Double-click the launcher for your system in `docker/launchers/`
-   (`Start-Polymer-Windows.bat` or `Start-Polymer-macOS-Linux.command`). The
-   first build takes 10–20 min (it downloads ~4 GB and compiles the modules).
-4. The browser opens at <http://localhost:8501>. In the page: accept the terms →
-   **Setup** tab → *Download auxiliary data* (~1 GB, once) → optionally enter a
-   NASA Earthdata / Copernicus CDS account.
-5. Put your Level-1 products in the `data/input/` folder, reload, open the
-   **Processing** tab, pick a product, click **Run Polymer**. Results land in
-   `data/output/`.
-
-**After an update (no full rebuild):**
-
-1. Stop the container (Docker Desktop → *Containers* → *Stop*).
+1. Stop the container: Docker Desktop → **Containers** → **Stop** on `polymer-gui`.
 2. Overwrite the project folder with the new version (new ZIP, or `git pull`),
-   keeping the `data/` folder.
-3. Run the launcher again — Docker reuses the cached layers and only rebuilds
-   what changed (usually under a minute). Auxiliary data, credentials, language
-   and history persist in `data/`.
+   **keeping the `data/` folder**.
+3. Run the launcher again. Docker reuses the cached layers and rebuilds only what
+   changed — usually under a minute.
 
-**Docs:**
+Your auxiliary data, credentials, language and history all live in `data/` and
+are kept across updates. Re-download the auxiliary data only if the app says it
+is missing.
 
-- Never used Docker? Click-by-click guide: [`docker/HOWTO.md`](docker/HOWTO.md)
-  ([italiano](docker/HOWTO.it.md)).
-- Reference: [`docker/README_DOCKER.md`](docker/README_DOCKER.md)
-  ([italiano](docker/README_DOCKER.it.md)).
+## Where your files are
 
-The in-app **Guide** tab repeats these first-run and update steps.
+A `data/` folder is created next to the project:
 
-Note: the resulting image must **not** be redistributed (see `LICENCE.TXT`); every
-user builds it locally from this repository.
+| Folder | Content |
+|---|---|
+| `data/input` | Level-1 products to process (you put them here) |
+| `data/output` | Level-2 results + `_jobs.log` (history) |
+| `data/auxdata` | Polymer static tables (downloaded once) |
+| `data/ancillary` | weather data downloaded automatically |
+| `data/config` | credentials, language, licence acceptance |
 
-### 1.1 Python environment
+Nothing is stored inside the container — you can delete and rebuild it without
+losing your setup.
 
-Polymer is written in python. It requires the installation of a python environment with the
-required dependencies.
+## Documentation
 
-#### 1.1.1 Pixi (recommended)
+- **Never used Docker?** Click-by-click guide: [`docker/HOWTO.md`](docker/HOWTO.md)
+  · 🇮🇹 [`docker/HOWTO.it.md`](docker/HOWTO.it.md)
+- **Reference:** [`docker/README_DOCKER.md`](docker/README_DOCKER.md)
+  · 🇮🇹 [`docker/README_DOCKER.it.md`](docker/README_DOCKER.it.md)
+- The in-app **Guide** tab repeats the first-run and update steps.
 
-A python environment for Polymer can be installed with the [pixi](https://pixi.sh/) package
-manager.
+## Command line (optional)
 
-In the Polymer directory, run the following command to install and activate the environment:
-```
-pixi shell
-```
+Instead of the launcher, from the repository root:
 
-Note: after Polymer update, pixi automatically updates the environment.
-
-#### 1.1.2 Conda/mamba
-
-The file `environment.yml` can be used to create a conda environment with Polymer dependencies:
-```
-conda env create -n polymer -f environment.yml
-conda activate polymer
-```
-
-Note: after updating Polymer, it may be necessary to recreate this environment.
-
-#### 1.1.3 As a python package
-
-Polymer can be installed directly in your python environment with the following command
-
-pip install git+https://github.com/hygeos/polymer
-
-### 1.2 Auxiliary data
-
-Two directories are necessary to store data files required by Polymer. These files are located
-using environment variables - please define these variables where is appropriate in your system:
-
-- A directory for storing static data files, `$DIR_POLYMER_AUXDATA`, or if this environment variable is not provided, in `auxdata` in the current directory.
-- A directory for storing ancillary meteo files downloaded on the fly, `$DIR_POLYMER_ANCILLARY`, or if this environment variable is not provided, in `ANCILLARY` in the current directory.
-
-Please define these variables (`$DIR_POLYMER_AUXDATA` and `$DIR_POLYMER_ANCILLARY`) to existing empty directories it in your `.bashrc` or in a `.env` file at the root of the Polymer repository.
-
-```
-DIR_POLYMER_AUXDATA=/path/to/polymer_auxdata/
-DIR_POLYMER_ANCILLARY=/path/to/polymer_ancillary/
-```
-The auxiliary data can then be downloaded in this folder with the following command:
-```
-$ make auxdata
+```bash
+docker compose -f docker/docker-compose.yml up --build   # first time / after update
+docker compose -f docker/docker-compose.yml up           # normal start
+docker compose -f docker/docker-compose.yml down          # stop
 ```
 
+## Notes and limits
 
-### 1.3 Compilation
+- The image is **linux/amd64 only** (`environment.yml` is a conda linux-64 lock).
+  On Apple Silicon Macs it runs under emulation — it works, just slower.
+- Supported sensors (via Polymer's v4 API): Sentinel-3 OLCI, Sentinel-2 MSI,
+  ENVISAT MERIS, MODIS Aqua, VIIRS, SeaWiFS, PRISMA, Landsat-8 OLI, ISS HICO.
+- MODIS / VIIRS / SeaWiFS need **Level-1C** files prepared beforehand with NASA
+  OBPG `l2gen` (not included here).
 
-The pyx files are cython files which need to be converted to C, then compiled.
-A makefile is provided, so just type:
-```
-$ make
-```
+## Licence and citation
 
-NOTE: the command `make all` will download the auxiliary files and proceed to the compilation.
+Polymer is distributed under the Polymer licence v2.0 — see
+[`LICENCE.TXT`](LICENCE.TXT). Free for scientific/non-commercial use;
+redistribution is not permitted.
 
+When acknowledging Polymer in scientific work, cite:
 
-## 2. Usage
+> François Steinmetz, Pierre-Yves Deschamps, and Didier Ramon,
+> "Atmospheric correction in presence of sun glint: application to MERIS",
+> Opt. Express 19, 9783–9800 (2011). <http://dx.doi.org/10.1364/OE.19.009783>
 
-Note: for version 5 preview, see README_v5.md
-
-### 2.1 How to run the algorithm
-
-There is a minimalistic command line interface `polymer_cli.py`
-```
-./polymer_cli.py <level1> <level2>
-```
-
-Where <level1> is a level1 file or directory for any of the supported sensors,
-and <level2> is the result to be generated.
-
-See `./polymer_cli.py -h` for more help
-
-
-More options are available by running polymer directly from your own python script.
-
-```python
-from polymer.main import run_atm_corr
-from polymer.level1 import Level1
-from polymer.level2 import Level2
-run_atm_corr(Level1('MER_RR__1PRACR20050501_092849_000026372036_00480_16566_0000.N1',
-                    <other optional level1 arguments>),
-                Level2('output.nc',
-                    <other optional level2 arguments>),
-                <optional polymer arguments>)
-```
-
-See `example.py` for more details...
-
-
-**Multiprocessing**
-
-One option is `multiprocessing`, which controls the number of threads available for Polymer processing (by default, multiprocessing is disactivated). To activate the processing on as many threads as there are cores on the CPU, pass the value `-1`:
-```
-run_atm_corr(..., multiprocessing=-1)
-```
-
-This option controls the parallelization of the core Polymer processing. However, Polymer relies on numpy, which can also use parallel processing, and results in a moderate usage of multiple cores. To also disactivate numpy multiprocessing, you can pass the environment variable `OMP_NUM_THREADS=1` (or use the [threadpoolctl](https://github.com/joblib/threadpoolctl) library)
-
-
-
-### 2.2 Ancillary data
-
-#### 2.2.1 NASA Ancillary data
-
-The credentials for accessing NASA ancillary data should be provided in your ~/.netrc file:
-```
-cd ~
-touch .netrc
-echo "machine urs.earthdata.nasa.gov login uid_goes_here password password_goes_here" > .netrc
-chmod 0600 .netrc
-```
-
-More information here: https://urs.earthdata.nasa.gov/documentation/for_users/data_access/curl_and_wget
-
-Ancillary data (ozone total column, wind speed, surface pressure) can be
-provided to the level1 class through the class Ancillary_NASA (NASA files in
-hdf4 format):
-
-```python
-    from polymer.ancillary import Ancillary_NASA
-    Level1(<filename>, ancillary=Ancillary_NASA())
-```
-
-**NOTE**: the class `Ancillary_NASA` has default options to automatically download and select
-the closest available dataset, in the folder `ANCILLARY/METEO/`
-
-This folder is initialized with the command `make ancillary` or `make all`.
-
-For more information about the optional parameters, please look at the help of
-`Ancillary_NASA`.
-
-
-#### 2.2.2 ERA Interim ancillary data
-
-Optionnally, the ancillary data (ozone total column, wind speed, surface
-pressure) can be provided by ECMWF's global reanalysis ERA-Interim.
-
-See https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era-interim
-
-The following python modules are necessary to interface Polymer with ERA-Interim:
-    * ecmwf python api client (to download ERA-Interim files on the fly)
-      A ECMWF key is necessary.
-      See https://software.ecmwf.int/wiki/display/WEBAPI/Access+ECMWF+Public+Datasets
-    * pygrib, to read the ERA-Interim files in grib format.
-
-The ERA-Interim ancillary data is used by passing the class Ancillary_ERA to
-the parameter ancillary of the Level1.
-
-```python
-    from polymer.ancillary_era import Ancillary_ERA
-    Level1(<filename>, ancillary=Ancillary_ERA())
-```
-
-By default, the closest data in time is automatically used, and downloaded on
-the fly if necessary.
-For more information, please look at the docstring of Ancillary_ERA.
-
-#### 2.2.3 ERA5 ancillary data
-
-The ancillary data can also be provided by ECMWF's ERA5 dataset:
-https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era5
-
-The following python modules are required:
-* cdsapi. A CDS API key is required.
-  Please see https://cds.climate.copernicus.eu/api-how-to for more details.
-* xarray
-
-```python
-    from polymer.ancillary_era5 import Ancillary_ERA5
-    Level1(<filename>, ancillary=Ancillary_ERA5())
-```
-
-### 2.3 Input data
-
-This section provides information about the supported file formats and sensors.
-
-**NOTE**: The class `Level1` (`from polymer.level1 import Level1`) autodetects the file
-format and returns the appropriate specific level1 object (Level1_MERIS, Level1_OLCI, etc).
-
-#### 2.3.1 MERIS/Envisat
-
-Both FF (reduced resolution) and FR (full resolution) are supported.
-
-Example:
-```python
-from polymer.level1_meris import Level1_MERIS
-Level1_MERIS('MER_RR__1PRACR20050501_092849_000026372036_00480_16566_0000.N1')
-    # optional arguments: sline, eline, ancillary
-```
-
-#### 2.3.2 OLCI/Sentinel3
-
-Both RR and FR are supported.
-The name of the Level1 product is the name of the directory.
-
-Example:
-```python
-from polymer.level1_olci import Level1_OLCI
-Level1_OLCI('S3A_OL_1_EFR____20170123T102747_20170123T103047_20170124T155459_0179_013_279_2160_LN1_O_NT_002.SEN3')
-    # optional arguments: sline, eline, scol, ecol, ancillary
-```
-
-
-#### 2.3.3 MODIS/Aqua, SeaWiFS, VIIRS
-
-MODIS, SeaWiFS and VIIRS requires Level1C files as input.
-See next section about Level 1C files for more information.
-
-Example:
-```python
-from polymer.level1_nasa import *
-Level1_MODIS('A2010120124000.L1C')
-Level1_SeaWiFS('S2000116121145.L1C')
-Level1_VIIRS('V2013339115400.L1C')
-    # optional arguments: sline, eline, scol, ecol, ancillary
-```
-
-
-#### 2.3.4 MSI/Sentinel-2
-
-The name of the level1 product refers to the path to the granule (in
-the "GRANULE/" directory).
-
-Example:
-
-```python
-from polymer.level1_msi import Level1_MSI
-Level1_MSI('S2A_OPER_PRD_MSIL1C_PDMC_20160504T225644_R094_V20160504T105917_20160504T105917.SAFE/GRANULE/S2A_OPER_MSI_L1C_TL_SGS__20160504T163055_A004524_T30TXR_N02.02')
-    # optional arguments: sline, eline, ancillary
-```
-
-#### 2.3.5 Ascii input
-
-Polymer supports ascii (CSV) data input from multiple sensors through the level1 class Level1_ASCII.
-
-#### 2.3.6 Subsetted products produced by SNAP
-
-Level1_NETCDF can be used to read MERIS, OLCI or Sentinel2 products in
-netCDF4 format, written by SNAP, in particular when used for subsetting.
-
-
-### 2.4 Level 1C files
-
-NASA OBPG L1A and L1B don't include all necessary radiometric corrections.
-Thus it is necessary to apply `l2gen` with custom options to write the TOA
-reflectances into what we call "Level1C" product.
-
-The command line is typically:
-
-```
-l2gen ifile=<level1a> ofile=<level1c> gain="1 1 1 1 1 1 1 1" oformat="netcdf4" l2prod="rhot_nnn polcor_nnn sena senz sola solz latitude longitude"
-```
-
-See `tools/make_L1C.py`, which is a helper script to generate level 1c products.
-
-
-### 2.5 Output
-
-The output files can be in format hdf4 or netcdf.
-They contain the water reflectance (dimensionless, fully-normalized for sun and
-sensor at nadir) and other self-explanatory parameters.
-
-### 2.6 Flagging
-
-The Polymer flags are the following:
-
-```
----------------------------------------------------------------------------------
-| Flag name          | Flag value  | Description                                |
-|--------------------|-------------|--------------------------------------------|
-| LAND               | 1           | Land mask                                  |
-| CLOUD_BASE         | 2           | Polymer's basic cloud mask                 |
-| L1_INVALID         | 4           | Invalid level1 pixel                       |
-| OUT_OF_BOUNDS      | 16          | Retrieved marine parameters are outside    |
-|                    |             | valid bounds                               |
-| EXCEPTION          | 32          | A processing error was encountered         |
-| THICK_AEROSOL      | 64          | Thick aerosol flag                         |
-| HIGH_AIR_MASS      | 128         | Air mass exceeds 5                         |
-| EXTERNAL_MASK      | 512         | Pixel was masked using external mask       |
-| CASE2              | 1024        | Pixel was processed in "case2" mode        |
-| INCONSISTENCY      | 2048        | Inconsistent result was detected           |
-|                    |             | (atmospheric reflectance out of bounds     |
-| ANOMALY_RWMOD_BLUE | 4096        | Excessive difference was found at 412nm    |
-|                    |             | between Rw and Rwmod                       |
---------------------------------------------------------------------------------|
-```
-
-The recommended flagging of output pixels is the following ('&' represents
-the bitwise AND operator):
-
-```
-------------------------------------------------------------------------------
-| Sensor   | Recommended flagging         | Notes                            |
-|          | (valid pixels)               |                                  |
-|----------|------------------------------|----------------------------------|
-| OLCI     | bitmask & 1023 == 0          |                                  |
-|          |                              |                                  |
-| MSI      | bitmask & 1023 == 0          |                                  |
-|          |                              |                                  |
-| MERIS    | bitmask & 1023 == 0          |                                  |
-|          |                              |                                  |
-| VIIRS    | bitmask & 1023 == 0          | Sun glint and bright (cloudy)    |
-|          | and (Rnir<0.1)               | pixels are discarded             |
-|          | and (Rgli<0.1)               |                                  |
-|          |                              |                                  |
-| SeaWiFS  | bitmask & 1023+2048 == 0     | The INCONSISTENCY flag           |
-|          |                              | cleans up most noisy pixels      |
-|          |                              |                                  |
-| MODIS    | bitmask & 1023+4096 == 0     | The ANOMALY_RWMOD_BLUE removes   |
-|          |                              | outliers appearing on MODIS      |
-|          |                              | results at high SZA              |
------------------------------------------------------------------------------|
-```
-Note: additional cloud masking using IdePix (https://github.com/bcdev/snap-idepix) is recommended.
-
-## 3. Licencing information
-
-This software is available under the Polymer licence v2.0, available in the
-LICENCE.TXT file.
-
-
-
-## 4. Referencing
-
-When acknowledging the use of Polymer for scientific papers, reports etc please
-cite the following reference:
-
-* François Steinmetz, Pierre-Yves Deschamps, and Didier Ramon, "Atmospheric
-  correction in presence of sun glint: application to MERIS", Opt. Express 19,
-  9783-9800 (2011), http://dx.doi.org/10.1364/OE.19.009783
-
-* François Steinmetz and Didier Ramon "Sentinel-2 MSI and Sentinel-3 OLCI consistent
-  ocean colour products using POLYMER", Proc. SPIE 10778, Remote Sensing of the Open
-  and Coastal Ocean and Inland Waters, 107780E (30 October 2018); https://doi.org/10.1117/12.2500232
-
-
+> François Steinmetz and Didier Ramon, "Sentinel-2 MSI and Sentinel-3 OLCI
+> consistent ocean colour products using POLYMER", Proc. SPIE 10778 (2018).
+> <https://doi.org/10.1117/12.2500232>
