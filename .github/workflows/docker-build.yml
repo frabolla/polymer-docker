@@ -1,4 +1,4 @@
-# Verify that the Polymer Docker image builds correctly.
+# Verify that the Polymer Docker image builds correctly, on both architectures.
 # It does NOT publish any image: Polymer's licence forbids redistribution.
 name: docker-build
 
@@ -7,6 +7,7 @@ on:
     paths:
       - "docker/**"
       - "environment.yml"
+      - "VERSION"
       - "polymer/**"
       - "meson.build"
       - "makefile"
@@ -15,6 +16,7 @@ on:
     paths:
       - "docker/**"
       - "environment.yml"
+      - "VERSION"
       - "polymer/**"
       - "meson.build"
       - "makefile"
@@ -23,27 +25,36 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux/amd64, linux/arm64]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up QEMU (for cross-arch builds)
+        if: matrix.platform != 'linux/amd64'
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build image (no push)
+      - name: Build image (${{ matrix.platform }}, no push)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile
+          platforms: ${{ matrix.platform }}
           push: false
           load: true
           tags: polymer-gui:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
 
       - name: Smoke test - compiled modules and app modules importable
         run: |
-          docker run --rm polymer-gui:ci \
-            micromamba run -n polymer python -c "import polymer.polymer_main, polymer.water; print('Cython OK')"
-          docker run --rm --entrypoint bash polymer-gui:ci -lc \
-            "micromamba run -n polymer python -c 'import ast; [ast.parse(open(f).read()) for f in [\"/app/streamlit_app.py\",\"/app/polymer_job.py\",\"/app/i18n.py\",\"/app/credentials.py\",\"/app/setup_status.py\",\"/app/quicklook.py\",\"/app/params_schema.py\"]]; print(\"app OK\")'"
+          docker run --rm --platform ${{ matrix.platform }} polymer-gui:ci \
+            micromamba run -n polymer python -c "import polymer.polymer_main, polymer.water; from polymer.main import run_atm_corr; print('Polymer OK')"
+          docker run --rm --platform ${{ matrix.platform }} --entrypoint bash polymer-gui:ci -lc \
+            "micromamba run -n polymer python -c 'import ast; [ast.parse(open(f).read()) for f in [\"/app/streamlit_app.py\",\"/app/polymer_job.py\",\"/app/job_runner.py\",\"/app/uploads.py\",\"/app/quicklook.py\",\"/app/i18n.py\",\"/app/credentials.py\",\"/app/setup_status.py\",\"/app/params_schema.py\"]]; print(\"app OK\")'"

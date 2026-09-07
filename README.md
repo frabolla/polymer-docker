@@ -98,8 +98,9 @@ docker compose -f docker/docker-compose.yml down          # stop
 
 ## Notes and limits
 
-- The image is **linux/amd64 only** (`environment.yml` is a conda linux-64 lock).
-  On Apple Silicon Macs it runs under emulation — it works, just slower.
+- The image builds natively for **linux/amd64** and **linux/arm64**. amd64 uses
+  the exact conda lock `environment.yml`; arm64 (Apple Silicon) uses the
+  version-pinned `docker/environment.arm64.yml`.
 - Supported sensors (via Polymer's v4 API): Sentinel-3 OLCI, Sentinel-2 MSI,
   ENVISAT MERIS, MODIS Aqua, VIIRS, SeaWiFS, PRISMA, Landsat-8 OLI, ISS HICO.
 - MODIS / VIIRS / SeaWiFS need **Level-1C** files prepared beforehand with NASA

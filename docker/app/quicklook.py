@@ -1,10 +1,10 @@
 """
 PNG preview of a Polymer Level-2 product.
 
-Tries, in order:
-  1. RGB from water reflectance (Rw/rho_w at ~665/560/443 nm)
-  2. map of logchl / logchl_mean
-  3. first available 2D variable
+- make_png(path, out)            -> auto: water-reflectance RGB, else logchl, else
+                                   the first 2D variable
+- make_png(path, out, var=NAME)  -> map of that variable + a value histogram
+- list_2d_vars(path)             -> names that can be shown as a map
 """
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ import numpy as np
 import i18n
 
 _RGB = {"r": 665, "g": 560, "b": 443}
+_SPATIAL_DIMS = {"height", "width", "y", "x", "rows", "columns", "line", "column"}
 
 
 def _open(path: str):
@@ -22,6 +23,19 @@ def _open(path: str):
         return xr.open_dataset(path)
     except Exception:
         return xr.open_dataset(path, engine="netcdf4")
+
+
+def list_2d_vars(path: str) -> list[str]:
+    ds = _open(path)
+    try:
+        out = []
+        for v in ds.data_vars:
+            da = ds[v]
+            if da.ndim == 2 and set(da.dims) <= _SPATIAL_DIMS:
+                out.append(str(v))
+        return sorted(out)
+    finally:
+        ds.close()
 
 
 def _find_band_var(ds, prefixes, wl):
@@ -48,8 +62,8 @@ def _stretch(a):
     return np.clip((a - lo) / (hi - lo), 0, 1)
 
 
-def make_png(level2_path: str, out_png: str) -> str:
-    """Write `out_png` and return a short description of what it shows."""
+def make_png(level2_path: str, out_png: str, var: str | None = None) -> str:
+    """Write `out_png`; return a short description of what it shows."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -57,6 +71,26 @@ def make_png(level2_path: str, out_png: str) -> str:
 
     ds = _open(level2_path)
     try:
+        if var and var in ds.variables:
+            data = np.asarray(ds[var].values, dtype="float32")
+            fig, (ax, axh) = plt.subplots(
+                1, 2, figsize=(11, 5), gridspec_kw={"width_ratios": [3, 2]}
+            )
+            im = ax.imshow(data, origin="upper", cmap="viridis")
+            fig.colorbar(im, ax=ax, shrink=0.8)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            finite = data[np.isfinite(data)]
+            if finite.size:
+                axh.hist(finite.ravel(), bins=80, color="#4C78A8")
+            axh.set_title("histogram")
+            desc = i18n.t("quicklook.map_var", name=var)
+            ax.set_title(desc, fontsize=10)
+            fig.tight_layout()
+            fig.savefig(out_png, dpi=110)
+            plt.close(fig)
+            return desc
+
         prefixes = ["rho_w_", "Rw", "rho_w"]
         r = _find_band_var(ds, prefixes, _RGB["r"])
         g = _find_band_var(ds, prefixes, _RGB["g"])
@@ -74,10 +108,7 @@ def make_png(level2_path: str, out_png: str) -> str:
                     chl = ds[cand]
                     break
             if chl is None:
-                twod = [
-                    v for v in ds.data_vars
-                    if ds[v].ndim == 2 and set(ds[v].dims) <= {"height", "width", "y", "x"}
-                ]
+                twod = list_2d_vars(level2_path)
                 if not twod:
                     raise RuntimeError("No 2D variable suitable for a preview.")
                 chl = ds[twod[0]]

@@ -101,15 +101,16 @@ without losing your setup and downloads.
 
 | Problem | Fix |
 |---|---|
-| "port 8501 already in use" | change `8501:8501` to `8502:8501` in `docker/docker-compose.yml` and open `http://localhost:8502` |
+| "port 8501 already in use" | change `127.0.0.1:8501:8501` to `127.0.0.1:8502:8501` in `docker/docker-compose.yml` and open `http://localhost:8502` |
 | Build failed halfway | `docker compose -f docker/docker-compose.yml build --no-cache` |
-| Processing slow on Apple Silicon Macs | expected: the image is `linux/amd64` and runs emulated. It works, just slower. |
+| Processing slower than expected on Apple Silicon | a native `arm64` image is built automatically. If your Docker is set to force `linux/amd64`, disable that so it builds native. |
 | "out of memory" during processing | in Docker Desktop → *Settings → Resources* raise the RAM (≥ 8 GB recommended) |
 | Need more disk space | the image + auxiliary data take ~6–7 GB |
 
 ## Known limits
 
-- The image is `linux/amd64` only (`environment.yml` is a lock for that platform).
+- The image builds natively for `linux/amd64` and `linux/arm64` (Apple Silicon
+  uses a version-pinned `docker/environment.arm64.yml` instead of the amd64 lock).
 - MODIS/VIIRS/SeaWiFS need **Level-1C** files prepared beforehand with `l2gen`
   (NASA OBPG), which is not included here.
 - The interface uses Polymer's v4 API (`run_atm_corr`), which covers every sensor

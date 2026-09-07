@@ -104,8 +104,8 @@ leave the app open.
 
 3. A small window appears and shows text scrolling — this is just progress
    information. **You do not type anything in it.** You can move it aside.
-   **The first start takes 10–20 minutes** (longer on Apple Silicon Macs): it is
-   downloading and preparing the program. This happens **only once**.
+   **The first start takes 10–20 minutes**: it is downloading and preparing the
+   program. This happens **only once**.
 
 4. When it is ready, your browser opens automatically at
    **<http://localhost:8501>**.
@@ -231,9 +231,9 @@ Open **Docker Desktop**, then click the **gear icon ⚙ (Settings)** at the top.
 | Launcher window says **"Docker is not running"** | Open Docker Desktop, wait for **"Engine running"** (bottom-left), then double-click the launcher again. |
 | Whale icon 🐳 keeps moving / **"Docker Desktop starting…"** never ends | Right-click the whale → **Restart**. Still stuck → restart the computer. |
 | Browser says **it can't connect** to `localhost:8501` | On the first start, wait a few more minutes. Then check Docker Desktop → **Containers**: the `polymer-gui` row should say **Running**. Click its **`8501:8501`** link. |
-| Message **"port 8501 already in use"** | Another program is using that number. Close it, or open `docker/docker-compose.yml` with a text editor (Notepad / TextEdit), change `8501:8501` to `8502:8501`, save, restart Polymer, and use <http://localhost:8502>. |
+| Message **"port 8501 already in use"** | Another program is using that number. Close it, or open `docker/docker-compose.yml` with a text editor (Notepad / TextEdit), change `127.0.0.1:8501:8501` to `127.0.0.1:8502:8501`, save, restart Polymer, and use <http://localhost:8502>. |
 | Processing stops with **"out of memory"** | Docker Desktop → ⚙ **Settings → Resources** → raise **Memory** to 8 GB+ → **Apply & restart**. |
-| Processing is **slow on an Apple Silicon Mac** | Expected: the program is built for Intel and runs under emulation. It works, just slower. |
+| Processing is **slower than expected on an Apple Silicon Mac** | A native Apple-Silicon version is built automatically. If it still feels emulated, check Docker Desktop is not forcing "Rosetta" / `linux/amd64` for this image. |
 | Nothing works, you want a clean slate | Docker Desktop → 🐞 **Troubleshoot → Clean / Purge data**, then redo Part 4. |
 
 ---

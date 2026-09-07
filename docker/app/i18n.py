@@ -82,10 +82,54 @@ _STRINGS: dict[str, dict[str, str]] = {
               "[github.com/hygeos/polymer](https://github.com/hygeos/polymer).",
     },
     "sidebar.language": {"en": "Language", "it": "Lingua"},
+    "sidebar.version": {"en": "Version {v}", "it": "Versione {v}"},
     "tab.process": {"en": "Processing", "it": "Elaborazione"},
     "tab.config": {"en": "Setup", "it": "Configurazione"},
     "tab.guide": {"en": "Guide", "it": "Guida"},
+    "tab.results": {"en": "Results", "it": "Risultati"},
     "tab.history": {"en": "History", "it": "Cronologia"},
+
+    # -- running job panel
+    "run.title": {"en": "Processing in progress", "it": "Elaborazione in corso"},
+    "run.batch_pos": {
+        "en": "Job {i} of {n} — {q} queued",
+        "it": "Job {i} di {n} — {q} in coda",
+    },
+    "run.processing": {"en": "Current product: {input}", "it": "Prodotto in corso: {input}"},
+    "run.blocks": {"en": "{d} / {n} blocks", "it": "{d} / {n} blocchi"},
+    "run.blocks_nototal": {"en": "{d} blocks processed", "it": "{d} blocchi elaborati"},
+    "run.elapsed": {"en": "Elapsed: {s} s", "it": "Trascorso: {s} s"},
+    "run.cancel": {"en": "Cancel", "it": "Annulla"},
+    "run.queued_only": {"en": "{q} job(s) queued.", "it": "{q} job in coda."},
+
+    # -- batch summary
+    "batch.title": {"en": "Last run", "it": "Ultima elaborazione"},
+    "batch.summary": {
+        "en": "{ok} succeeded, {fail} failed out of {n}.",
+        "it": "{ok} riuscite, {fail} fallite su {n}.",
+    },
+    "batch.dismiss": {"en": "Clear", "it": "Nascondi"},
+
+    # -- upload
+    "upload.header": {"en": "Upload a product", "it": "Carica un prodotto"},
+    "upload.label": {
+        "en": "Drop a .zip (for .SEN3 / .SAFE folder products) or a single-file "
+              "product (.nc, .he5, .N1, .L1C, .csv)",
+        "it": "Trascina uno .zip (per prodotti a cartella .SEN3 / .SAFE) o un "
+              "prodotto a file singolo (.nc, .he5, .N1, .L1C, .csv)",
+    },
+    "upload.save": {"en": "Save to data/input", "it": "Salva in data/input"},
+
+    # -- results tab
+    "results.none": {
+        "en": "No results yet in `data/output/`. Run a processing first.",
+        "it": "Ancora nessun risultato in `data/output/`. Esegui prima "
+              "un'elaborazione.",
+    },
+    "results.pick": {"en": "Result file", "it": "File risultato"},
+    "results.info": {"en": "{name} — {size:.1f} MB — {when}", "it": "{name} — {size:.1f} MB — {when}"},
+    "results.variable": {"en": "Variable to preview", "it": "Variabile da visualizzare"},
+    "results.auto": {"en": "auto (RGB / chlorophyll)", "it": "auto (RGB / clorofilla)"},
 
     # -- in-app guide
     "guide.intro": {
@@ -390,6 +434,8 @@ _STRINGS: dict[str, dict[str, str]] = {
     "history.col.format": {"en": "format", "it": "formato"},
     "history.col.duration_s": {"en": "duration (s)", "it": "durata (s)"},
     "history.col.result": {"en": "result", "it": "esito"},
+    "history.col.output": {"en": "output", "it": "output"},
+    "history.col.version": {"en": "version", "it": "versione"},
     "history.result.ok": {"en": "ok", "it": "ok"},
     "history.result.error": {"en": "error ({rc})", "it": "errore ({rc})"},
 

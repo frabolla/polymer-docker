@@ -1,0 +1,68 @@
+# Conda environment for Polymer on linux/arm64 (Apple Silicon, etc.).
+#
+# The repository's environment.yml is an exact conda-forge lock for linux-64 and
+# cannot be solved on aarch64. This file lists the same dependencies with version
+# floors only, so micromamba solves a fresh, native arm64 environment.
+#
+# Keep this in sync with:
+#   - pyproject.toml  [tool.pixi.dependencies]
+#   - environment.yml  (the "pip:" section)
+name: polymer
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  # build toolchain for the Cython extensions
+  - cython
+  - meson
+  - ninja
+  - gcc
+  - gxx
+  # scientific / IO stack
+  - numpy>=2
+  - scipy
+  - pandas
+  - xarray
+  - dask
+  - h5py
+  - h5netcdf
+  - netcdf4
+  - pyhdf
+  - matplotlib-base
+  - numba
+  - llvmlite
+  # geospatial
+  - gdal
+  - pyproj
+  - glymur
+  - rasterio
+  - rioxarray
+  - shapely
+  - affine
+  # xarray helpers
+  - pint-xarray
+  - cf-xarray
+  # GRIB / ECMWF (ERA5 ancillary)
+  - cfgrib
+  - eccodes
+  - cdsapi
+  # misc
+  - xlrd<2
+  - python-dotenv
+  - toml
+  - pysolar
+  - findlibs
+  # tests (kept for parity with environment.yml)
+  - pytest
+  - pytest-html
+  - pytest-xdist
+  - pip:
+      # pyepr (ENVISAT MERIS reader) has no conda-forge aarch64 build; build it
+      # from source (needs numpy + Cython + a C compiler, all present).
+      - pyepr
+      # HYGEOS packages, pinned to the same commits as environment.yml
+      - core @ git+https://github.com/hygeos/core#71527c54f49955dd5aa6d604efb917d2e554d0b5
+      - eoread @ git+https://github.com/hygeos/eoread#57fba2321ba950b3982246ee861d1213926f60f9
+      - eotools @ git+https://github.com/hygeos/eotools#7729b45d3d9a9760e5216447ef86f228fc59dbf7
+      - luts @ git+https://github.com/hygeos/luts#1d6452697e65af60304cf49448a6ce336b498b69

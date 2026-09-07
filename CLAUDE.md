@@ -49,10 +49,12 @@ docker/
 
 ## Key technical decisions
 
-- **Base image**: `mambaorg/micromamba:1.5-jammy`, pinned `--platform=linux/amd64`
-  because `environment.yml` is a conda **linux-64 lock**. On Apple Silicon it runs
-  emulated (works, slower). A native arm64 image would need a second lock — out of
-  scope.
+- **Base image**: `mambaorg/micromamba:1.5-jammy`, multi-arch. The Dockerfile
+  picks the conda env file by `TARGETARCH`: `environment.yml` (exact linux-64
+  lock) for amd64, `docker/environment.arm64.yml` (version floors only, solved
+  fresh) for arm64. Keep `environment.arm64.yml` in sync with
+  `pyproject.toml [tool.pixi.dependencies]` and the pip section of
+  `environment.yml`.
 - **Polymer API**: the v4 `run_atm_corr` (covers OLCI, MSI, MERIS, MODIS, VIIRS,
   SeaWiFS, PRISMA, Landsat-8, HICO). v5 (`main_v5.run_polymer`) is OLCI/PACE/HYPSO
   only, so not used.
@@ -119,12 +121,31 @@ docker run --rm polymer-gui:local micromamba run -n polymer \
   (PRs #26/#27 there were closed on purpose).
 - `data/` is git-ignored.
 
+## App modules (docker/app/)
+
+- `job_runner.py` — runs one Polymer job at a time as a detached subprocess,
+  extra jobs queue. State in `/data/output/_run/` (`current.json`, `queue.json`,
+  `<run_id>.log`, `<run_id>.result.json`). `poll()` is the idempotent heartbeat
+  (finalize finished job → append `_jobs.log` → start next). `cancel()` kills the
+  process group. The Processing tab polls with `time.sleep(2); st.rerun()` while a
+  job runs.
+- `polymer_job.py` — prints `[polymer_job] BLOCKS_TOTAL n` (best-effort: opens the
+  Level-1 once to read shape) so the UI shows a real progress bar from the
+  `Processing block:` lines Polymer emits; writes `<run_id>.result.json` on exit.
+- `uploads.py` — `st.file_uploader` handler: `.zip` → safe-extract into
+  `data/input`, single-file products saved as-is.
+- `quicklook.py` — `list_2d_vars()` + `make_png(path, out, var=None)` (auto RGB /
+  chlorophyll, or a chosen variable + histogram). Used by the Results tab.
+- `setup_status.verify_auxdata()` — checks required aux files exist and are not
+  truncated (min sizes); `auxdata_present()` uses it. `app_version()` reads
+  `POLYMER_GUI_VERSION` env, then `/app/VERSION`, then "dev".
+
 ## Known limitations / open items
 
-- linux/amd64 only (see above).
 - MODIS/VIIRS/SeaWiFS need Level-1C files prepared with NASA OBPG `l2gen`, not
   included.
 - The HYGEOS git deps (`core`, `eoread`, `eotools`, `luts`) are pinned by commit
-  inside `environment.yml`; if those repos change, the build must be updated.
+  inside `environment.yml` **and** `docker/environment.arm64.yml`; update both.
 - No automated test of an actual processing run (needs data + credentials).
-- See the "Suggested improvements" list kept with the maintainer.
+- `environment.arm64.yml` is solved fresh each build — a package could shift
+  under it. Consider generating a real aarch64 lock later.

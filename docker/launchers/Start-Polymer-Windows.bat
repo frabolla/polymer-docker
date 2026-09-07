@@ -49,7 +49,15 @@ if errorlevel 1 (
 
 echo.
 echo Waiting for the interface to be ready...
-timeout /t 8 /nobreak >nul
+set /a _tries=0
+:waitloop
+for /f "tokens=*" %%h in ('docker inspect -f "{{.State.Health.Status}}" polymer-gui 2^>nul') do set "_hs=%%h"
+if "%_hs%"=="healthy" goto ready
+set /a _tries+=1
+if %_tries% geq 90 goto ready
+timeout /t 2 /nobreak >nul
+goto waitloop
+:ready
 start "" "http://localhost:8501"
 
 echo.

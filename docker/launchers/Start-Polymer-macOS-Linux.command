@@ -39,8 +39,10 @@ docker compose -f docker/docker-compose.yml up -d --build
 
 echo
 echo "Waiting for the interface to be ready..."
-for _ in $(seq 1 60); do
-  if curl -sf http://localhost:8501 >/dev/null 2>&1; then break; fi
+for _ in $(seq 1 90); do
+  hs=$(docker inspect -f '{{.State.Health.Status}}' polymer-gui 2>/dev/null || echo "")
+  if [ "$hs" = "healthy" ]; then break; fi
+  if curl -sf http://localhost:8501/_stcore/health >/dev/null 2>&1; then break; fi
   sleep 2
 done
 

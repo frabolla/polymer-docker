@@ -107,8 +107,8 @@ finestra; lascia l'app aperta.
 
 3. Compare una piccola finestra con del testo che scorre — sono solo informazioni
    di avanzamento. **Non devi digitare nulla.** Puoi spostarla di lato.
-   **Il primo avvio richiede 10–20 minuti** (di più sui Mac Apple Silicon): sta
-   scaricando e preparando il programma. Succede **solo una volta**.
+   **Il primo avvio richiede 10–20 minuti**: sta scaricando e preparando il
+   programma. Succede **solo una volta**.
 
 4. Quando è pronto, il browser si apre da solo su
    **<http://localhost:8501>**.
@@ -237,9 +237,9 @@ alto.
 | La finestra del launcher dice **"Docker is not running"** | Apri Docker Desktop, aspetta **"Engine running"** (in basso a sinistra), poi rifai doppio clic sul launcher. |
 | L'icona della balena 🐳 continua a muoversi / **"Docker Desktop starting…"** non finisce mai | Tasto destro sulla balena → **Restart**. Se resta bloccato → riavvia il computer. |
 | Il browser dice che **non riesce a connettersi** a `localhost:8501` | Al primo avvio aspetta qualche minuto in più. Poi controlla Docker Desktop → **Containers**: la riga `polymer-gui` deve dire **Running**. Clicca il suo link **`8501:8501`**. |
-| Messaggio **"port 8501 already in use"** | Un altro programma sta usando quel numero. Chiudilo, oppure apri `docker/docker-compose.yml` con un editor di testo (Blocco note / TextEdit), cambia `8501:8501` in `8502:8501`, salva, riavvia Polymer e usa <http://localhost:8502>. |
+| Messaggio **"port 8501 already in use"** | Un altro programma sta usando quel numero. Chiudilo, oppure apri `docker/docker-compose.yml` con un editor di testo (Blocco note / TextEdit), cambia `127.0.0.1:8501:8501` in `127.0.0.1:8502:8501`, salva, riavvia Polymer e usa <http://localhost:8502>. |
 | L'elaborazione si ferma con **"out of memory"** | Docker Desktop → ⚙ **Settings → Resources** → alza **Memory** a 8 GB+ → **Apply & restart**. |
-| L'elaborazione è **lenta su un Mac Apple Silicon** | Normale: il programma è compilato per Intel e gira in emulazione. Funziona, solo più lento. |
+| L'elaborazione è **più lenta del previsto su un Mac Apple Silicon** | Viene costruita in automatico una versione nativa Apple Silicon. Se sembra ancora emulata, controlla che Docker Desktop non stia forzando "Rosetta" / `linux/amd64` per questa immagine. |
 | Non funziona niente, vuoi ripartire pulito | Docker Desktop → 🐞 **Troubleshoot → Clean / Purge data**, poi rifai la Parte 4. |
 
 ---

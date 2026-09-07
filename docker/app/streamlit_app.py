@@ -20,7 +20,10 @@ import streamlit as st
 
 import credentials as cred
 import i18n
+import job_runner
+import quicklook
 import setup_status as status
+import uploads
 from params_schema import (
     ANCILLARY_SOURCES,
     COMMON_PARAMS,
@@ -36,8 +39,7 @@ LICENCE_FILE = APP_DIR / "LICENCE.TXT"
 CONFIG_DIR = Path(os.environ.get("HOME", "/data/config"))
 LICENCE_FLAG = CONFIG_DIR / ".polymer_licence_accepted"
 OUTPUT_DIR = Path("/data/output")
-JOBS_LOG = OUTPUT_DIR / "_jobs.log"
-JOB_TMP = CONFIG_DIR / "_job.json"
+INPUT_DIR = Path("/data/input")
 
 st.set_page_config(page_title="Polymer", page_icon="P", layout="wide")
 
@@ -78,24 +80,6 @@ def stream_command(cmd: list[str], env: dict | None = None) -> int:
         box.code("\n".join(lines[-400:]), language="text")
     proc.wait()
     return proc.returncode
-
-
-def append_job_log(entry: dict) -> None:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    with JOBS_LOG.open("a") as fh:
-        fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
-
-
-def read_job_log() -> list[dict]:
-    if not JOBS_LOG.exists():
-        return []
-    out = []
-    for ln in JOBS_LOG.read_text().splitlines():
-        try:
-            out.append(json.loads(ln))
-        except Exception:
-            pass
-    return out[::-1]
 
 
 # --------------------------------------------------------------------- language
@@ -175,18 +159,27 @@ def sidebar_status() -> None:
     if not ok_aux:
         st.sidebar.info(i18n.t("status.need_auxdata"))
     st.sidebar.caption(i18n.t("status.folders"))
+    st.sidebar.caption(i18n.t("sidebar.version", v=status.app_version()))
 
 
 # --------------------------------------------------------------------- setup tab
 def tab_config() -> None:
     st.subheader(i18n.t("config.aux_header"))
     st.write(i18n.t("config.aux_text"))
-    if status.auxdata_present():
+
+    ok_aux, problems = status.verify_auxdata()
+    if ok_aux:
         st.success(i18n.t("config.aux_present", size=status.auxdata_size_mb()))
+    elif problems and status.auxdata_size_mb() > 0:
+        st.warning("\n".join("- " + p for p in problems))
+
     if st.button(i18n.t("config.aux_button"), type="primary"):
         rc = stream_command([sys.executable, "-m", "polymer.get_auxdata"])
-        if rc == 0:
+        ok_after, problems_after = status.verify_auxdata()
+        if rc == 0 and ok_after:
             st.success(i18n.t("config.aux_ok"))
+        elif rc == 0 and not ok_after:
+            st.error("\n".join([i18n.t("config.aux_fail", rc=rc)] + ["- " + p for p in problems_after]))
         else:
             st.error(i18n.t("config.aux_fail", rc=rc))
 
@@ -307,55 +300,87 @@ def parse_advanced(text: str) -> dict:
     return out
 
 
-def run_job(cfg: dict) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    JOB_TMP.write_text(json.dumps(cfg, indent=2))
-    st.write(i18n.t("process.processing_of", input=cfg["input"]))
-    t0 = time.time()
-    rc = stream_command([sys.executable, str(APP_DIR / "polymer_job.py"), "--config", str(JOB_TMP)])
-    dt = time.time() - t0
-    entry = {
-        "when": datetime.now().isoformat(timespec="seconds"),
-        "input": cfg["input"],
-        "sensor": cfg["sensor"],
-        "format": cfg["fmt"],
-        "duration_s": round(dt, 1),
-        "result": "ok" if rc == 0 else f"error ({rc})",
-    }
-    append_job_log(entry)
+# --------------------------------------------------------- running job / batch UI
+def render_running(stt: dict) -> None:
+    st.subheader(i18n.t("run.title"))
+    if stt.get("total_in_batch", 1) > 1 or stt.get("queued"):
+        st.caption(
+            i18n.t(
+                "run.batch_pos",
+                i=stt.get("index", 1),
+                n=stt.get("total_in_batch", 1),
+                q=stt.get("queued", 0),
+            )
+        )
+    st.write(i18n.t("run.processing", input=Path(stt["input"]).name))
 
-    if rc != 0:
-        st.error(i18n.t("process.failed", rc=rc))
+    done, total = stt.get("blocks_done", 0), stt.get("blocks_total")
+    if total:
+        st.progress(min(done / total, 1.0), text=i18n.t("run.blocks", d=done, n=total))
+    else:
+        st.caption(i18n.t("run.blocks_nototal", d=done))
+    st.caption(i18n.t("run.elapsed", s=stt.get("elapsed_s", 0)))
+
+    st.code(job_runner.log_tail(stt["log"], 300), language="text")
+
+    if st.button(i18n.t("run.cancel"), type="secondary"):
+        job_runner.cancel()
+        st.rerun()
+
+    time.sleep(2)
+    st.rerun()
+
+
+def render_batch_summary() -> None:
+    batch_id = st.session_state.get("last_batch")
+    if not batch_id:
         return
-    st.success(i18n.t("process.done", dt=dt))
-
-    newest = _newest_output()
-    if newest is not None:
-        st.write(i18n.t("process.file_produced", name=newest.name, size=newest.stat().st_size / 1e6))
-        try:
-            import quicklook
-
-            png = CONFIG_DIR / "_preview.png"
-            desc = quicklook.make_png(str(newest), str(png))
-            st.image(str(png), caption=desc, use_container_width=True)
-        except Exception as exc:  # preview is non-critical
-            st.caption(i18n.t("process.preview_unavailable", exc=exc))
-
-
-def _newest_output() -> Path | None:
-    if not OUTPUT_DIR.exists():
-        return None
-    files = [
-        p for p in OUTPUT_DIR.iterdir()
-        if p.is_file() and p.suffix in (".nc", ".hdf") and not p.name.startswith("_")
+    rows = job_runner.batch_rows(batch_id)
+    if not rows:
+        return
+    ok = sum(1 for r in rows if r.get("result") == "ok")
+    st.subheader(i18n.t("batch.title"))
+    st.write(i18n.t("batch.summary", ok=ok, fail=len(rows) - ok, n=len(rows)))
+    cols = ["input", "sensor", "result", "duration_s", "output"]
+    disp = [
+        {i18n.t(f"history.col.{c}"): (Path(str(r.get(c, ""))).name if c in ("input", "output") else r.get(c, "")) for c in cols}
+        for r in rows
     ]
-    return max(files, key=lambda p: p.stat().st_mtime) if files else None
+    st.dataframe(disp, width="stretch", hide_index=True)
+    if st.button(i18n.t("batch.dismiss")):
+        del st.session_state["last_batch"]
+        st.rerun()
+    st.divider()
+
+
+def render_uploader() -> None:
+    with st.expander(i18n.t("upload.header")):
+        files = st.file_uploader(
+            i18n.t("upload.label"),
+            accept_multiple_files=True,
+            type=["zip", "nc", "he5", "h5", "hdf", "n1", "l1c", "csv"],
+            key="uploader",
+        )
+        if files and st.button(i18n.t("upload.save"), type="primary"):
+            for m in uploads.save_uploads(files):
+                st.write("- " + m)
+            st.rerun()
 
 
 # ---------------------------------------------------------------- processing tab
 def tab_process() -> None:
+    job_runner.poll()
+    stt = job_runner.state()
+    if stt.get("running"):
+        render_running(stt)
+        return
+
+    render_batch_summary()
+
     if not status.overall_ready():
         st.warning(i18n.t("process.incomplete"))
+
+    render_uploader()
 
     products = status.list_input_products()
     if not products:
@@ -428,12 +453,9 @@ def tab_process() -> None:
 
     if st.button(i18n.t("process.run"), type="primary", disabled=not selected):
         advanced = parse_advanced(advanced_text)
-        progress = st.progress(0.0)
-        for idx, name in enumerate(selected):
-            st.divider()
-            st.markdown(f"### {idx + 1}/{len(selected)} — {name}")
-            cfg = build_job_config(
-                input_path=str(Path("/data/input") / name),
+        cfgs = [
+            build_job_config(
+                input_path=str(INPUT_DIR / name),
                 sensor=sensor,
                 fmt=fmt,
                 resolution=resolution,
@@ -442,8 +464,10 @@ def tab_process() -> None:
                 common_vals=common_vals,
                 advanced=advanced,
             )
-            run_job(cfg)
-            progress.progress((idx + 1) / len(selected))
+            for name in selected
+        ]
+        st.session_state["last_batch"] = job_runner.enqueue(cfgs, version=status.app_version())
+        st.rerun()
 
 
 # ------------------------------------------------------------------- guide tab
@@ -462,18 +486,69 @@ def tab_guide() -> None:
     st.markdown(i18n.t("guide.about_body"))
 
 
+# ------------------------------------------------------------------- results tab
+def _output_files() -> list[Path]:
+    if not OUTPUT_DIR.exists():
+        return []
+    files = [
+        p for p in OUTPUT_DIR.iterdir()
+        if p.is_file() and p.suffix in (".nc", ".hdf") and not p.name.startswith("_")
+    ]
+    return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)
+
+
+def tab_results() -> None:
+    files = _output_files()
+    if not files:
+        st.info(i18n.t("results.none"))
+        return
+
+    pick = st.selectbox(
+        i18n.t("results.pick"),
+        files,
+        format_func=lambda p: p.name,
+    )
+    when = datetime.fromtimestamp(pick.stat().st_mtime).isoformat(timespec="seconds")
+    st.caption(i18n.t("results.info", name=pick.name, size=pick.stat().st_size / 1e6, when=when))
+
+    try:
+        vars_ = quicklook.list_2d_vars(str(pick))
+    except Exception as exc:
+        st.caption(i18n.t("process.preview_unavailable", exc=exc))
+        return
+
+    choice = st.selectbox(
+        i18n.t("results.variable"),
+        ["__auto__"] + vars_,
+        format_func=lambda v: i18n.t("results.auto") if v == "__auto__" else v,
+    )
+    try:
+        png = CONFIG_DIR / "_preview.png"
+        desc = quicklook.make_png(
+            str(pick), str(png), var=None if choice == "__auto__" else choice
+        )
+        st.image(str(png), caption=desc, width="stretch")
+    except Exception as exc:
+        st.caption(i18n.t("process.preview_unavailable", exc=exc))
+
+
 # ------------------------------------------------------------------ history tab
 def tab_history() -> None:
-    rows = read_job_log()
+    rows = job_runner.read_history()
     if not rows:
         st.info(i18n.t("history.empty"))
         return
-    cols = ["when", "input", "sensor", "format", "duration_s", "result"]
+    cols = ["when", "input", "sensor", "format", "duration_s", "result", "version"]
     display = [
-        {i18n.t(f"history.col.{c}"): r.get(c, "") for c in cols}
+        {
+            i18n.t(f"history.col.{c}"): (
+                Path(str(r.get(c, ""))).name if c == "input" else r.get(c, "")
+            )
+            for c in cols
+        }
         for r in rows
     ]
-    st.dataframe(display, use_container_width=True, hide_index=True)
+    st.dataframe(display, width="stretch", hide_index=True)
 
 
 # ----------------------------------------------------------------------------- main
@@ -481,16 +556,18 @@ def main() -> None:
     pick_language()
     if not licence_gate():
         return
+    job_runner.poll()  # keep job state fresh regardless of the active tab
     sidebar_status()
     st.title("Polymer")
     st.caption(i18n.t("app.caption"))
     st.caption(i18n.t("app.fork_note"))
 
-    t_proc, t_conf, t_guide, t_hist = st.tabs(
+    t_proc, t_conf, t_guide, t_results, t_hist = st.tabs(
         [
             i18n.t("tab.process"),
             i18n.t("tab.config"),
             i18n.t("tab.guide"),
+            i18n.t("tab.results"),
             i18n.t("tab.history"),
         ]
     )
@@ -500,6 +577,8 @@ def main() -> None:
         tab_config()
     with t_guide:
         tab_guide()
+    with t_results:
+        tab_results()
     with t_hist:
         tab_history()
 

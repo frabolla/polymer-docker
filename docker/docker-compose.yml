@@ -20,11 +20,16 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      args:
+        # Overridden by CI / release tags; shown in the interface.
+        POLYMER_GUI_VERSION: ${POLYMER_GUI_VERSION:-dev}
     image: polymer-gui:local
-    platform: linux/amd64
     container_name: polymer-gui
     ports:
-      - "8501:8501"
+      # Bound to localhost only: the interface is NOT exposed to the local
+      # network. Change the left-hand number (e.g. 127.0.0.1:8502:8501) if the
+      # port is already taken.
+      - "127.0.0.1:8501:8501"
     volumes:
       - ../data/input:/data/input
       - ../data/output:/data/output
@@ -33,3 +38,9 @@ services:
       - ../data/config:/data/config
     shm_size: "2gb"
     restart: "no"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8501/_stcore/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
