@@ -1,5 +1,10 @@
-# Verify that the Polymer Docker image builds correctly, on both architectures.
+# Verify that the Polymer Docker image builds correctly.
 # It does NOT publish any image: Polymer's licence forbids redistribution.
+#
+# linux/amd64 is built on every push (native, ~15-20 min).
+# linux/arm64 is emulated via QEMU (~1 h), so it only runs on pull requests and
+# on a manual "Run workflow" (workflow_dispatch) — enough to catch breakage in
+# docker/environment.arm64.yml without slowing every push.
 name: docker-build
 
 on:
@@ -22,6 +27,11 @@ on:
       - "makefile"
   workflow_dispatch:
 
+# Only keep the latest run per branch; cancel superseded ones.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,7 +39,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux/amd64, linux/arm64]
+        # amd64 always; add arm64 only on pull_request / workflow_dispatch.
+        platform: ${{ github.event_name == 'push' && fromJSON('["linux/amd64"]') || fromJSON('["linux/amd64","linux/arm64"]') }}
     steps:
       - uses: actions/checkout@v4
 
