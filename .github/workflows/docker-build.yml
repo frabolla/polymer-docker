@@ -1,0 +1,49 @@
+# Verifica che l'immagine Docker di Polymer si costruisca correttamente.
+# NON pubblica alcuna immagine: la licenza di Polymer vieta la ridistribuzione.
+name: docker-build
+
+on:
+  push:
+    paths:
+      - "docker/**"
+      - "environment.yml"
+      - "polymer/**"
+      - "meson.build"
+      - "makefile"
+      - ".github/workflows/docker-build.yml"
+  pull_request:
+    paths:
+      - "docker/**"
+      - "environment.yml"
+      - "polymer/**"
+      - "meson.build"
+      - "makefile"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          load: true
+          tags: polymer-gui:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test — moduli compilati e job runner importabile
+        run: |
+          docker run --rm polymer-gui:ci \
+            micromamba run -n polymer python -c "import polymer.polymer_main, polymer.water; print('Cython OK')"
+          docker run --rm --entrypoint bash polymer-gui:ci -lc \
+            "micromamba run -n polymer python -c 'import ast; ast.parse(open(\"/app/polymer_job.py\").read()); ast.parse(open(\"/app/streamlit_app.py\").read()); print(\"app OK\")'"

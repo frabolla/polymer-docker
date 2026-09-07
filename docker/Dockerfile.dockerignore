@@ -1,0 +1,20 @@
+# Contesto di build minimale: servono solo sorgente Polymer, environment.yml,
+# la cartella docker/ e la licenza.
+data/
+tests/
+docs/
+build/
+.git/
+.github/
+.claude/
+*.so
+*.png
+*.nc
+*.hdf
+__pycache__/
+*.pyc
+.pixi/
+pixi.lock
+README_v5.md
+CHANGELOG.TXT
+example.py

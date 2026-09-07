@@ -1,0 +1,35 @@
+# Avvio di Polymer con interfaccia grafica.
+#
+# Prima volta (costruisce l'immagine, 10-20 minuti):
+#   docker compose -f docker/docker-compose.yml up --build
+# Volte successive:
+#   docker compose -f docker/docker-compose.yml up
+# Poi apri il browser su http://localhost:8501
+#
+# I dati stanno nella cartella ./data accanto al repository:
+#   data/input      -> metti qui i prodotti satellitari Level-1
+#   data/output     -> qui compaiono i risultati Level-2
+#   data/auxdata    -> dati statici di Polymer (scaricati una volta sola)
+#   data/ancillary  -> dati meteo scaricati automaticamente
+#   data/config     -> credenziali salvate dall'interfaccia
+
+name: polymer
+
+services:
+  polymer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: polymer-gui:local
+    platform: linux/amd64
+    container_name: polymer-gui
+    ports:
+      - "8501:8501"
+    volumes:
+      - ../data/input:/data/input
+      - ../data/output:/data/output
+      - ../data/auxdata:/data/auxdata
+      - ../data/ancillary:/data/ancillary
+      - ../data/config:/data/config
+    shm_size: "2gb"
+    restart: "no"

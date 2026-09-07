@@ -21,6 +21,16 @@ http://www.opticsinfobase.org/oe/abstract.cfm?uri=oe-19-10-9783
 
 ## 1. Installation
 
+### 1.0 Docker container with a graphical interface (easiest)
+
+If you just want to *run* Polymer without setting up a Python environment or
+compiling anything, use the Docker packaging in [`docker/`](docker/): install
+Docker Desktop, double-click a launcher script, and drive Polymer from a web page
+in your browser. See [`docker/README_DOCKER.md`](docker/README_DOCKER.md).
+
+Note: the resulting image must **not** be redistributed (see `LICENCE.TXT`); every
+user builds it locally from this repository.
+
 ### 1.1 Python environment
 
 Polymer is written in python. It requires the installation of a python environment with the
