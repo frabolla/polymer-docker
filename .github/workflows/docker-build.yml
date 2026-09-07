@@ -1,5 +1,5 @@
-# Verifica che l'immagine Docker di Polymer si costruisca correttamente.
-# NON pubblica alcuna immagine: la licenza di Polymer vieta la ridistribuzione.
+# Verify that the Polymer Docker image builds correctly.
+# It does NOT publish any image: Polymer's licence forbids redistribution.
 name: docker-build
 
 on:
@@ -41,9 +41,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Smoke test — moduli compilati e job runner importabile
+      - name: Smoke test - compiled modules and app modules importable
         run: |
           docker run --rm polymer-gui:ci \
             micromamba run -n polymer python -c "import polymer.polymer_main, polymer.water; print('Cython OK')"
           docker run --rm --entrypoint bash polymer-gui:ci -lc \
-            "micromamba run -n polymer python -c 'import ast; ast.parse(open(\"/app/polymer_job.py\").read()); ast.parse(open(\"/app/streamlit_app.py\").read()); print(\"app OK\")'"
+            "micromamba run -n polymer python -c 'import ast; [ast.parse(open(f).read()) for f in [\"/app/streamlit_app.py\",\"/app/polymer_job.py\",\"/app/i18n.py\",\"/app/credentials.py\",\"/app/setup_status.py\",\"/app/quicklook.py\",\"/app/params_schema.py\"]]; print(\"app OK\")'"

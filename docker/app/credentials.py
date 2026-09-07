@@ -1,11 +1,11 @@
 """
-Gestione delle credenziali per i dati meteo ausiliari.
+Credential handling for the auxiliary meteorological data.
 
 - NASA Earthdata  -> file  ~/.netrc      (machine urs.earthdata.nasa.gov ...)
 - Copernicus CDS  -> file  ~/.cdsapirc   (url + key)
 
-I file sono salvati in /data/config (montato dall'host) cosi' da sopravvivere ai
-riavvii del container.  HOME e' impostata a /data/config nel Dockerfile/entrypoint.
+Both files live in /data/config (a host bind mount) so they survive container
+restarts. HOME is set to /data/config in the Dockerfile / entrypoint.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ CDS_URL = "https://cds.climate.copernicus.eu/api"
 
 # --------------------------------------------------------------------------- NASA
 def read_earthdata() -> dict:
-    """Ritorna {'login': ..., 'password': ...} se presenti nel .netrc, altrimenti {}."""
+    """Return {'login': ..., 'password': ...} if present in .netrc, else {}."""
     if not NETRC.exists():
         return {}
     tokens = NETRC.read_text().split()
@@ -40,7 +40,7 @@ def read_earthdata() -> dict:
 
 
 def write_earthdata(login: str, password: str) -> None:
-    """Crea/aggiorna la riga di Earthdata nel ~/.netrc senza toccare le altre."""
+    """Create/update the Earthdata line in ~/.netrc, leaving other lines intact."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     lines = []
     if NETRC.exists():
@@ -91,9 +91,9 @@ def clear_cds() -> None:
         CDSAPIRC.unlink()
 
 
-# ------------------------------------------------------------------------- stato
+# ------------------------------------------------------------------------- status
 def status() -> dict:
-    """Riepilogo booleano per la pagina 'Stato configurazione'."""
+    """Boolean summary for the 'Setup status' sidebar."""
     ed = read_earthdata()
     cds = read_cds()
     return {

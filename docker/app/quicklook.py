@@ -1,14 +1,16 @@
 """
-Anteprima PNG di un prodotto Level-2 di Polymer.
+PNG preview of a Polymer Level-2 product.
 
-Prova, in ordine:
-  1. RGB dalla riflettanza dell'acqua (Rw/rho_w a ~665/560/443 nm)
-  2. mappa di logchl / logchl_mean
-  3. prima variabile 2D disponibile
+Tries, in order:
+  1. RGB from water reflectance (Rw/rho_w at ~665/560/443 nm)
+  2. map of logchl / logchl_mean
+  3. first available 2D variable
 """
 from __future__ import annotations
 
 import numpy as np
+
+import i18n
 
 _RGB = {"r": 665, "g": 560, "b": 443}
 
@@ -47,7 +49,7 @@ def _stretch(a):
 
 
 def make_png(level2_path: str, out_png: str) -> str:
-    """Genera `out_png` e restituisce una breve descrizione di cosa mostra."""
+    """Write `out_png` and return a short description of what it shows."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -64,7 +66,7 @@ def make_png(level2_path: str, out_png: str) -> str:
         if r is not None and g is not None and b is not None:
             rgb = np.dstack([_stretch(r.values), _stretch(g.values), _stretch(b.values)])
             ax.imshow(rgb, origin="upper")
-            desc = "RGB della riflettanza dell'acqua (665 / 560 / 443 nm)"
+            desc = i18n.t("quicklook.rgb")
         else:
             chl = None
             for cand in ("logchl", "logchl_mean", "logchl_stdev"):
@@ -77,11 +79,11 @@ def make_png(level2_path: str, out_png: str) -> str:
                     if ds[v].ndim == 2 and set(ds[v].dims) <= {"height", "width", "y", "x"}
                 ]
                 if not twod:
-                    raise RuntimeError("Nessuna variabile 2D adatta per l'anteprima.")
+                    raise RuntimeError("No 2D variable suitable for a preview.")
                 chl = ds[twod[0]]
-                desc = f"Mappa di '{twod[0]}'"
+                desc = i18n.t("quicklook.map_var", name=twod[0])
             else:
-                desc = f"Mappa di '{chl.name}' (log clorofilla)"
+                desc = i18n.t("quicklook.map_chl", name=chl.name)
             im = ax.imshow(chl.values, origin="upper", cmap="viridis")
             fig.colorbar(im, ax=ax, shrink=0.8)
         ax.set_title(desc, fontsize=10)

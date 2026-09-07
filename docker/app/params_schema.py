@@ -1,12 +1,16 @@
 """
-Elenco curato dei parametri di Polymer esposti nell'interfaccia grafica.
+Structural description of the Polymer parameters exposed in the interface.
 
-I significati derivano dalla docstring di ``run_atm_corr`` (polymer/main.py) e da
-``polymer/params.py``.  Tutto cio' che non e' qui resta comunque impostabile dalla
-sezione "Parametri avanzati" dell'interfaccia (passati come **kwargs).
+Only names, types and defaults live here. All user-facing labels and help texts
+are translated in i18n.py (keys "param.<name>.label" / "param.<name>.help",
+"watermodel.*", "normalize.*", "ancillary.*").
+
+Meanings come from the ``run_atm_corr`` docstring (polymer/main.py) and
+``polymer/params.py``. Anything not listed here is still reachable through the
+"Advanced parameters" section of the interface (passed as **kwargs).
 """
 
-# Sensori riconosciuti dall'interfaccia. "auto" = rilevamento dal nome file.
+# Sensors known to the interface. "auto" = detect from the file name.
 SENSORS = [
     "auto",
     "OLCI",       # Sentinel-3
@@ -20,72 +24,31 @@ SENSORS = [
     "HICO",
 ]
 
-# Sensori la cui autodetezione dal nome file NON e' supportata da polymer.level1.Level1
+# Sensors whose file-name auto-detection is NOT supported by polymer.level1.Level1
 NEEDS_EXPLICIT_SENSOR = {"PRISMA", "HICO"}
 
 OUTPUT_FORMATS = ["netcdf4", "hdf4"]
 
-WATER_MODELS = {
-    "PR05": "Park & Ruddick 2005 (predefinito, consigliato)",
-    "MM01": "Morel & Maritorena 2001",
-    "MM01_FOQ": "Morel & Maritorena 2001 con f/Q direzionale",
-}
+# Codes only; descriptions come from i18n ("watermodel.<code>").
+WATER_MODELS = ["PR05", "MM01", "MM01_FOQ"]
 
-NORMALIZE = {
-    0: "Nessuna normalizzazione",
-    1: "Normalizza la riflettanza dell'acqua al nadir",
-    2: "Normalizzazione in lunghezza d'onda (MERIS/OLCI)",
-    3: "Entrambe (nadir + lunghezza d'onda)",
-}
+# Codes only; descriptions come from i18n ("normalize.<code>").
+NORMALIZE = [0, 1, 2, 3]
 
-ANCILLARY_SOURCES = {
-    "auto": "Automatico (usa NASA se disponibili le credenziali)",
-    "NASA": "NASA Earthdata (ozono, vento, pressione)",
-    "ERA5": "Copernicus ERA5 / CDS",
-    "none": "Nessuno (usa le climatologie interne)",
-}
+# Codes only; descriptions come from i18n ("ancillary.<code>").
+ANCILLARY_SOURCES = ["auto", "NASA", "ERA5", "none"]
 
-# Campi "comuni" mostrati sempre nel modulo di elaborazione.
-# tipo: text | int | float | bool | choice
+# Common fields, always shown in the processing form.
+# type: int (only int is used for now)
 COMMON_PARAMS = [
-    {
-        "name": "multiprocessing",
-        "label": "Numero di core CPU",
-        "type": "int",
-        "default": -1,
-        "help": "0 = un solo core.  -1 = tutti i core disponibili.  N = N core.",
-    },
-    {
-        "name": "sline",
-        "label": "Riga iniziale (ritaglio)",
-        "type": "int",
-        "default": 0,
-        "help": "Ritaglia il prodotto: prima riga da elaborare (0 = dall'inizio).",
-    },
-    {
-        "name": "eline",
-        "label": "Riga finale (ritaglio)",
-        "type": "int",
-        "default": -1,
-        "help": "Ultima riga da elaborare (-1 = fino alla fine).",
-    },
-    {
-        "name": "scol",
-        "label": "Colonna iniziale (ritaglio)",
-        "type": "int",
-        "default": 0,
-        "help": "Prima colonna da elaborare (0 = dall'inizio). Ignorato da alcuni sensori.",
-    },
-    {
-        "name": "ecol",
-        "label": "Colonna finale (ritaglio)",
-        "type": "int",
-        "default": -1,
-        "help": "Ultima colonna da elaborare (-1 = fino alla fine).",
-    },
+    {"name": "multiprocessing", "type": "int", "default": -1},
+    {"name": "sline", "type": "int", "default": 0},
+    {"name": "eline", "type": "int", "default": -1},
+    {"name": "scol", "type": "int", "default": 0},
+    {"name": "ecol", "type": "int", "default": -1},
 ]
 
-# Etichette leggibili per i flag di qualita' di Polymer (polymer/common.py).
+# Human-readable names for Polymer's quality flags (polymer/common.py).
 L2_FLAGS = {
     "LAND": 1,
     "CLOUD_BASE": 2,

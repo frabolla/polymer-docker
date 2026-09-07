@@ -1,109 +1,113 @@
-# Polymer in Docker, con interfaccia grafica
+# Polymer in Docker, with a graphical interface
 
-Questa cartella contiene tutto il necessario per usare **Polymer** senza installare
-Python, senza compilare nulla e senza usare la riga di comando. I parametri si
-impostano da una pagina web che si apre nel browser.
+> 🇮🇹 Versione italiana: [README_DOCKER.it.md](README_DOCKER.it.md)
 
-> **Licenza.** Polymer è di HYGEOS e **non può essere ridistribuito** (vedi
-> `LICENCE.TXT`, Sezione 2). Per questo qui trovi solo le *istruzioni di
-> costruzione*: l'immagine Docker viene creata sul tuo computer, in locale.
-> Al primo avvio dovrai accettare i Termini d'uso di Polymer.
+This folder contains everything needed to use **Polymer** without installing
+Python, without compiling anything and without the command line. Parameters are
+set from a web page that opens in your browser. The interface is in English by
+default; Italian can be selected from the sidebar.
+
+> **Licence.** Polymer belongs to HYGEOS and **may not be redistributed** (see
+> `LICENCE.TXT`, Section 2). That is why only the *build recipe* is provided here:
+> the Docker image is built on your own computer, locally. On first run you must
+> accept Polymer's Terms of use.
 
 ---
 
-## 1. Installa Docker Desktop (una volta sola)
+## 1. Install Docker Desktop (once)
 
-| Sistema | Link |
+| System | Link |
 |---|---|
 | Windows 10/11 | <https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe> |
 | macOS (Apple Silicon: M1/M2/M3/M4) | <https://desktop.docker.com/mac/main/arm64/Docker.dmg> |
 | macOS (Intel) | <https://desktop.docker.com/mac/main/amd64/Docker.dmg> |
 | Linux | <https://docs.docker.com/desktop/install/linux/> |
 
-Installa, avvia **Docker Desktop** e aspetta che l'icona della balena sia stabile
-(stato "running").
+Install it, start **Docker Desktop** and wait until the whale icon is steady
+("running").
 
-## 2. Scarica questo repository
+## 2. Download this repository
 
-- Pulsante verde **Code → Download ZIP** su GitHub, poi estrai la cartella;
-- oppure, se hai git: `git clone <url-del-repository>`.
+- Green **Code → Download ZIP** button on GitHub, then extract the folder;
+- or, if you have git: `git clone <repository-url>`.
 
-## 3. Avvia Polymer
+## 3. Start Polymer
 
-Apri la cartella `docker/launchers/` e fai **doppio clic** su:
+Open the `docker/launchers/` folder and **double-click**:
 
-- **Windows** → `Avvia-Polymer-Windows.bat`
-- **macOS / Linux** → `Avvia-Polymer-macOS-Linux.command`
-  (su macOS la prima volta: tasto destro → **Apri** per superare il blocco Gatekeeper)
+- **Windows** → `Start-Polymer-Windows.bat`
+- **macOS / Linux** → `Start-Polymer-macOS-Linux.command`
+  (on macOS the first time: right-click → **Open** to get past Gatekeeper)
 
-La **prima volta** la costruzione richiede **10–20 minuti** (scarica ~4 GB di
-librerie scientifiche e compila i moduli di calcolo). Le volte successive l'avvio è
-quasi immediato.
+The **first run** takes **10–20 minutes** (it downloads ~4 GB of scientific
+libraries and compiles the compute modules). Later starts are almost instant.
 
-Quando è pronto, il browser si apre da solo su **<http://localhost:8501>**.
+When it is ready, the browser opens by itself at **<http://localhost:8501>**.
 
-> In alternativa, da un terminale nella cartella del repository:
+> Alternatively, from a terminal in the repository folder:
 > ```bash
 > docker compose -f docker/docker-compose.yml up --build
 > ```
 
-## 4. Prima configurazione (nell'interfaccia)
+## 4. First-time setup (in the interface)
 
-1. **Accetta i Termini d'uso** di Polymer.
-2. Scheda **Configurazione → Scarica dati ausiliari** (circa 1 GB, una volta sola).
-3. *(Facoltativo)* Scheda **Configurazione → Credenziali dati meteo**: inserisci
-   l'utente/password di [NASA Earthdata](https://urs.earthdata.nasa.gov/users/new)
-   oppure la [CDS API key](https://cds.climate.copernicus.eu/user/register).
-   Senza credenziali, Polymer usa comunque delle climatologie interne.
+1. **Accept Polymer's Terms of use.**
+2. **Setup → Download auxiliary data** (about 1 GB, once).
+3. *(Optional)* **Setup → Meteorological data credentials**: enter your
+   [NASA Earthdata](https://urs.earthdata.nasa.gov/users/new) username/password
+   or your [CDS API key](https://cds.climate.copernicus.eu/user/register).
+   Without credentials, Polymer still works using built-in climatologies.
 
-## 5. Elabora un prodotto
+## 5. Process a product
 
-1. Copia i tuoi prodotti **Level-1** nella cartella `data/input/` che è comparsa
-   accanto al repository (cartelle `.SEN3` per Sentinel-3 OLCI, `.SAFE` per
-   Sentinel-2 MSI, file `.he5` per PRISMA, `.N1` per MERIS, `.L1C` per MODIS/VIIRS/SeaWiFS…).
-2. Nella scheda **Elaborazione**: seleziona il prodotto, il sensore (`auto` va bene
-   nella maggior parte dei casi; per **PRISMA** e **HICO** scegli il sensore a mano),
-   il formato di output e i parametri.
-3. Premi **▶ Avvia Polymer**. Il registro di elaborazione scorre a schermo.
-4. Al termine trovi il risultato in `data/output/` e un'anteprima nell'interfaccia.
+1. Copy your **Level-1** products into the `data/input/` folder that appeared
+   next to the repository (`.SEN3` folders for Sentinel-3 OLCI, `.SAFE` for
+   Sentinel-2 MSI, `.he5` files for PRISMA, `.N1` for MERIS, `.L1C` for
+   MODIS/VIIRS/SeaWiFS…).
+2. On the **Processing** tab: pick the product, the sensor (`auto` is fine in
+   most cases; for **PRISMA** and **HICO** choose the sensor manually), the
+   output format and the parameters.
+3. Press **▶ Run Polymer**. The processing log scrolls on screen.
+4. When done, the result is in `data/output/` and a preview is shown in the
+   interface.
 
-Puoi selezionare **più prodotti insieme** per l'elaborazione in lotto.
+You can select **several products at once** for batch processing.
 
-## 6. Fermare / aggiornare
+## 6. Stop / update
 
-- Fermare: `docker compose -f docker/docker-compose.yml down`
-- Aggiornare dopo un `git pull`: riavvia con il launcher (ricostruisce se serve) o
+- Stop: `docker compose -f docker/docker-compose.yml down`
+- Update after a `git pull`: restart with the launcher (it rebuilds if needed) or
   `docker compose -f docker/docker-compose.yml up --build`.
 
-## Dove finiscono i dati
+## Where the data goes
 
-Accanto al repository viene creata la cartella `data/`:
+A `data/` folder is created next to the repository:
 
-| Cartella | Contenuto |
+| Folder | Content |
 |---|---|
-| `data/input` | prodotti Level-1 da elaborare (li metti tu) |
-| `data/output` | risultati Level-2 + `_jobs.log` (cronologia) |
-| `data/auxdata` | tabelle statiche di Polymer (scaricate una volta) |
-| `data/ancillary` | dati meteo scaricati automaticamente |
-| `data/config` | credenziali (`.netrc`, `.cdsapirc`) e consenso alla licenza |
+| `data/input` | Level-1 products to process (you put them here) |
+| `data/output` | Level-2 results + `_jobs.log` (history) |
+| `data/auxdata` | Polymer static tables (downloaded once) |
+| `data/ancillary` | meteorological data downloaded automatically |
+| `data/config` | credentials (`.netrc`, `.cdsapirc`), language and licence consent |
 
-Nessuno di questi dati è dentro l'immagine: puoi cancellare e ricostruire
-l'immagine senza perdere configurazione e download.
+None of this data lives inside the image: you can delete and rebuild the image
+without losing your setup and downloads.
 
-## Risoluzione problemi
+## Troubleshooting
 
-| Problema | Soluzione |
+| Problem | Fix |
 |---|---|
-| «porta 8501 già in uso» | cambia `8501:8501` in `8502:8501` in `docker/docker-compose.yml` e vai su `http://localhost:8502` |
-| Build fallita a metà | `docker compose -f docker/docker-compose.yml build --no-cache` |
-| Elaborazione lenta su Mac Apple Silicon | normale: l'immagine è `linux/amd64` ed è emulata. Funziona, ma è più lenta. |
-| «out of memory» durante l'elaborazione | in Docker Desktop → *Settings → Resources* aumenta la RAM (consigliati ≥ 8 GB) |
-| Serve più spazio disco | l'immagine + dati ausiliari occupano ~6–7 GB |
+| "port 8501 already in use" | change `8501:8501` to `8502:8501` in `docker/docker-compose.yml` and open `http://localhost:8502` |
+| Build failed halfway | `docker compose -f docker/docker-compose.yml build --no-cache` |
+| Processing slow on Apple Silicon Macs | expected: the image is `linux/amd64` and runs emulated. It works, just slower. |
+| "out of memory" during processing | in Docker Desktop → *Settings → Resources* raise the RAM (≥ 8 GB recommended) |
+| Need more disk space | the image + auxiliary data take ~6–7 GB |
 
-## Limiti noti
+## Known limits
 
-- L'immagine è solo `linux/amd64` (il lock `environment.yml` è per quella piattaforma).
-- MODIS/VIIRS/SeaWiFS richiedono file **Level-1C** già preparati con `l2gen` (NASA
-  OBPG), non incluso qui.
-- L'interfaccia usa l'API v4 di Polymer (`run_atm_corr`), che copre tutti i sensori
-  elencati sopra.
+- The image is `linux/amd64` only (`environment.yml` is a lock for that platform).
+- MODIS/VIIRS/SeaWiFS need **Level-1C** files prepared beforehand with `l2gen`
+  (NASA OBPG), which is not included here.
+- The interface uses Polymer's v4 API (`run_atm_corr`), which covers every sensor
+  listed above.

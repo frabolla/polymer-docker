@@ -1,29 +1,30 @@
 # check=skip=FromPlatformFlagConstDisallowed
-# Polymer + interfaccia grafica web, in un unico container.
+# Polymer + web GUI, in a single container.
 #
-# NOTA LICENZA: questa immagine NON deve essere ridistribuita (LICENCE.TXT, Sez. 2).
-# Ogni utente la costruisce in locale a partire da questo repository.
+# LICENCE NOTE: this image must NOT be redistributed (LICENCE.TXT, Section 2).
+# Every user builds it locally from this repository.
 #
-# Build (dalla radice del repository):
+# Build (from the repository root):
 #   docker compose -f docker/docker-compose.yml build
 #
-# L'ambiente Python e' ricreato dal lock conda-forge del repo (environment.yml).
-# I moduli Cython di Polymer vengono compilati qui.  I dati ausiliari statici NON
-# sono inclusi: si scaricano al primo avvio dentro un volume montato.
+# The Python environment is recreated from the repo's conda-forge lock
+# (environment.yml). Polymer's Cython modules are compiled here. The static
+# auxiliary data is NOT included: it is downloaded on first run into a mounted
+# volume.
 
-# environment.yml e' un lock conda per linux-64: l'immagine e' quindi solo amd64.
-# Su Mac Apple Silicon viene eseguita in emulazione (piu' lenta, ma funziona).
+# environment.yml is a conda lock for linux-64, so the image is amd64 only.
+# On Apple Silicon Macs it runs under emulation (slower, but it works).
 FROM --platform=linux/amd64 mambaorg/micromamba:1.5-jammy
 
-# --- pacchetti di sistema (git serve per le dipendenze pip da GitHub) ---
+# --- system packages (git is needed for the pip dependencies hosted on GitHub) ---
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git ca-certificates curl tini make build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# --- ambiente conda "polymer" dal lock del repo ---
+# --- "polymer" conda environment from the repo lock ---
 COPY environment.yml /tmp/environment.yml
-# L'ambiente e' scelto con -n (la riga "name:" vuota del file viene ignorata).
+# The environment is selected with -n (the empty "name:" line in the file is ignored).
 RUN micromamba create -y -n polymer -f /tmp/environment.yml \
     && micromamba run -n polymer pip install --no-cache-dir "streamlit>=1.36" \
     && micromamba clean -y --all
@@ -34,11 +35,11 @@ ENV MAMBA_DEFAULT_ENV=polymer \
     PYTHONPATH=/opt/polymer \
     PYTHONUNBUFFERED=1
 
-# I dati (input/output/auxdata/ancillary/config) vivono qui, su volumi montati.
-# Le variabili e le cartelle devono esistere gia' in fase di build: importando
-# polymer, params.py risolve queste directory tramite core.env.getdir, che SOLLEVA
-# un'eccezione se la cartella non esiste.  DIR_DATA e' il fallback comune e va
-# impostato anche lui (viene valutato sempre, pure quando le altre var sono definite).
+# The data (input/output/auxdata/ancillary/config) lives here, on mounted volumes.
+# The variables and the folders must already exist at build time: importing
+# polymer, params.py resolves these directories via core.env.getdir, which RAISES
+# if the folder does not exist. DIR_DATA is the shared fallback and must be set
+# too (it is always evaluated, even when the other variables are defined).
 ENV DIR_DATA=/data \
     DIR_POLYMER_AUXDATA=/data/auxdata/static \
     DIR_POLYMER_ANCILLARY=/data/ancillary \
@@ -46,15 +47,15 @@ ENV DIR_DATA=/data \
     OMP_NUM_THREADS=1
 RUN mkdir -p /data/input /data/output /data/auxdata/static /data/ancillary /data/config
 
-# --- sorgente di Polymer + compilazione dei moduli Cython ---
+# --- Polymer source + Cython module compilation ---
 WORKDIR /opt/polymer
 COPY polymer/     ./polymer/
 COPY meson.build makefile pyproject.toml ./
 COPY tools/       ./tools/
 RUN micromamba run -n polymer make \
-    && micromamba run -n polymer python -c "import polymer.polymer_main, polymer.water, polymer.clut, polymer.neldermead, polymer.polymer_minimizer; print('moduli Cython OK')"
+    && micromamba run -n polymer python -c "import polymer.polymer_main, polymer.water, polymer.clut, polymer.neldermead, polymer.polymer_minimizer; print('Cython modules OK')"
 
-# --- interfaccia grafica + licenza (mostrata nell'app) ---
+# --- web GUI + licence (shown inside the app) ---
 COPY docker/app/  /app/
 COPY LICENCE.TXT  /app/LICENCE.TXT
 COPY docker/entrypoint.sh /entrypoint.sh

@@ -1,8 +1,10 @@
 """
-Interfaccia grafica per Polymer (correzione atmosferica del colore dell'oceano).
+Web interface for Polymer (atmospheric correction of ocean colour).
 
-Si apre nel browser su http://localhost:8501 quando il container e' in esecuzione.
-Nessun comando da digitare: tutti i parametri si impostano da qui.
+Opens in the browser at http://localhost:8501 while the container is running.
+Nothing to type on a command line: every parameter is set from here.
+
+English is the primary language; Italian can be selected in the sidebar.
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ from pathlib import Path
 import streamlit as st
 
 import credentials as cred
+import i18n
 import setup_status as status
 from params_schema import (
     ANCILLARY_SOURCES,
@@ -41,7 +44,7 @@ st.set_page_config(page_title="Polymer", page_icon="🌊", layout="wide")
 
 # --------------------------------------------------------------------------- util
 def stream_command(cmd: list[str], env: dict | None = None) -> int:
-    """Esegue `cmd`, riversa stdout/stderr in un box a schermo, ritorna l'exit code."""
+    """Run `cmd`, mirror stdout/stderr into an on-screen box, return the exit code."""
     box = st.empty()
     lines: list[str] = []
     proc = subprocess.Popen(
@@ -78,140 +81,146 @@ def read_job_log() -> list[dict]:
     return out[::-1]
 
 
-# ------------------------------------------------------------------ gate: licenza
+# --------------------------------------------------------------------- language
+def pick_language() -> None:
+    """Render the language selector and apply the choice (rerun on change)."""
+    saved = st.session_state.get("lang") or i18n.load_saved_lang()
+    i18n.set_lang(saved)
+
+    codes = list(i18n.LANGUAGES.keys())
+    idx = codes.index(saved) if saved in codes else 0
+    choice = st.sidebar.selectbox(
+        i18n.t("sidebar.language"),
+        codes,
+        index=idx,
+        format_func=lambda c: i18n.LANGUAGES[c],
+        key="lang_select",
+    )
+    if choice != saved:
+        st.session_state["lang"] = choice
+        i18n.save_lang(choice)
+        i18n.set_lang(choice)
+        st.rerun()
+    st.session_state["lang"] = choice
+    i18n.set_lang(choice)
+
+
+# ------------------------------------------------------------------ licence gate
 def licence_gate() -> bool:
     if LICENCE_FLAG.exists():
         return True
-    st.title("🌊 Polymer — Termini d'uso")
-    st.warning(
-        "Prima di usare Polymer devi accettare i Termini d'uso di HYGEOS. "
-        "In sintesi: uso gratuito **solo per scopi non commerciali** e **non ridistribuibile**."
-    )
+    st.title("🌊 " + i18n.t("licence.title"))
+    st.warning(i18n.t("licence.warning"))
     if LICENCE_FILE.exists():
         st.text_area("LICENCE.TXT", LICENCE_FILE.read_text(), height=320)
-    agree = st.checkbox("Ho letto e accetto i Termini d'uso di Polymer")
-    if st.button("Continua", disabled=not agree, type="primary"):
+    agree = st.checkbox(i18n.t("licence.checkbox"))
+    if st.button(i18n.t("licence.continue"), disabled=not agree, type="primary"):
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         LICENCE_FLAG.write_text(datetime.now().isoformat())
         st.rerun()
     return False
 
 
-# ---------------------------------------------------------------- sidebar / stato
+# ---------------------------------------------------------------- sidebar status
 def sidebar_status() -> None:
-    st.sidebar.header("Stato configurazione")
+    st.sidebar.header(i18n.t("status.header"))
 
     ok_cy = status.cython_modules_ok()
-    st.sidebar.write(("✅" if ok_cy else "❌") + " Moduli di calcolo compilati")
+    st.sidebar.write(("✅" if ok_cy else "❌") + " " + i18n.t("status.modules"))
 
     ok_aux = status.auxdata_present()
-    size = status.auxdata_size_mb()
     st.sidebar.write(
-        ("✅" if ok_aux else "⬇️") + f" Dati ausiliari statici ({size:.0f} MB)"
+        ("✅" if ok_aux else "⬇️") + " " + i18n.t("status.auxdata", size=status.auxdata_size_mb())
     )
 
     cs = cred.status()
     st.sidebar.write(
         ("✅" if cs["earthdata"] else "➖")
-        + " NASA Earthdata"
+        + " " + i18n.t("status.earthdata")
         + (f" ({cs['earthdata_login']})" if cs["earthdata"] else "")
     )
-    st.sidebar.write(("✅" if cs["cds"] else "➖") + " Copernicus CDS / ERA5")
+    st.sidebar.write(("✅" if cs["cds"] else "➖") + " " + i18n.t("status.cds"))
 
     st.sidebar.divider()
     if not ok_aux:
-        st.sidebar.info("Scarica i dati ausiliari dalla scheda **Configurazione**.")
-    st.sidebar.caption(
-        "Cartelle sull'host:\n\n"
-        "`data/input` → prodotti Level-1\n\n"
-        "`data/output` → risultati\n\n"
-        "`data/config` → credenziali"
-    )
+        st.sidebar.info(i18n.t("status.need_auxdata"))
+    st.sidebar.caption(i18n.t("status.folders"))
 
 
-# --------------------------------------------------------- scheda: configurazione
+# --------------------------------------------------------------------- setup tab
 def tab_config() -> None:
-    st.subheader("Dati ausiliari statici")
-    st.write(
-        "Polymer ha bisogno di alcune tabelle di riferimento (circa 1 GB, incluso "
-        "`LUT.hdf`). Si scaricano **una sola volta** nella cartella `data/auxdata`."
-    )
+    st.subheader(i18n.t("config.aux_header"))
+    st.write(i18n.t("config.aux_text"))
     if status.auxdata_present():
-        st.success(f"Dati ausiliari presenti ({status.auxdata_size_mb():.0f} MB).")
-    if st.button("Scarica / aggiorna dati ausiliari", type="primary"):
+        st.success(i18n.t("config.aux_present", size=status.auxdata_size_mb()))
+    if st.button(i18n.t("config.aux_button"), type="primary"):
         rc = stream_command([sys.executable, "-m", "polymer.get_auxdata"])
         if rc == 0:
-            st.success("Download completato.")
+            st.success(i18n.t("config.aux_ok"))
         else:
-            st.error(f"Download fallito (codice {rc}). Controlla la connessione e riprova.")
+            st.error(i18n.t("config.aux_fail", rc=rc))
 
     st.divider()
-    st.subheader("Credenziali dati meteo (facoltative)")
-    st.write(
-        "Servono per scaricare **al volo** ozono, vento e pressione. Senza credenziali "
-        "Polymer usa comunque delle climatologie interne."
-    )
+    st.subheader(i18n.t("config.cred_header"))
+    st.write(i18n.t("config.cred_text"))
 
     src = st.radio(
-        "Fonte dei dati meteo",
-        options=list(ANCILLARY_SOURCES.keys()),
-        format_func=lambda k: ANCILLARY_SOURCES[k],
-        horizontal=False,
+        i18n.t("config.cred_source"),
+        options=ANCILLARY_SOURCES,
+        format_func=lambda k: i18n.t(f"ancillary.{k}"),
         key="anc_source_config",
     )
 
     if src == "NASA":
         ed = cred.read_earthdata()
         with st.form("form_nasa"):
-            login = st.text_input("Nome utente Earthdata", value=ed.get("login", ""))
-            pw = st.text_input("Password Earthdata", type="password")
+            login = st.text_input(i18n.t("config.nasa_user"), value=ed.get("login", ""))
+            pw = st.text_input(i18n.t("config.nasa_pass"), type="password")
             c1, c2 = st.columns(2)
-            save = c1.form_submit_button("Salva credenziali NASA", type="primary")
-            clear = c2.form_submit_button("Rimuovi")
+            save = c1.form_submit_button(i18n.t("config.nasa_save"), type="primary")
+            clear = c2.form_submit_button(i18n.t("config.remove"))
         if save:
             if login and pw:
                 cred.write_earthdata(login, pw)
-                st.success("Credenziali NASA salvate in data/config/.netrc")
+                st.success(i18n.t("config.nasa_saved"))
                 st.rerun()
             else:
-                st.error("Inserisci sia nome utente sia password.")
+                st.error(i18n.t("config.nasa_need_both"))
         if clear:
             cred.clear_earthdata()
-            st.info("Credenziali NASA rimosse.")
+            st.info(i18n.t("config.nasa_removed"))
             st.rerun()
-        st.caption(
-            "Registrazione gratuita: https://urs.earthdata.nasa.gov/users/new — "
-            "ricorda di autorizzare l'applicazione «NASA GESDISC DATA ARCHIVE»."
-        )
+        st.caption(i18n.t("config.nasa_hint"))
 
     elif src == "ERA5":
         cds = cred.read_cds()
         with st.form("form_cds"):
             key = st.text_input(
-                "CDS API key", value=cds.get("key", ""),
-                help="La trovi nella tua pagina profilo su cds.climate.copernicus.eu",
+                i18n.t("config.cds_key"),
+                value=cds.get("key", ""),
+                help=i18n.t("config.cds_key_help"),
             )
             c1, c2 = st.columns(2)
-            save = c1.form_submit_button("Salva API key CDS", type="primary")
-            clear = c2.form_submit_button("Rimuovi")
+            save = c1.form_submit_button(i18n.t("config.cds_save"), type="primary")
+            clear = c2.form_submit_button(i18n.t("config.remove"))
         if save:
             if key.strip():
                 cred.write_cds(key.strip())
-                st.success("API key salvata in data/config/.cdsapirc")
+                st.success(i18n.t("config.cds_saved"))
                 st.rerun()
             else:
-                st.error("Inserisci la API key.")
+                st.error(i18n.t("config.cds_need_key"))
         if clear:
             cred.clear_cds()
-            st.info("API key CDS rimossa.")
+            st.info(i18n.t("config.cds_removed"))
             st.rerun()
-        st.caption("Registrazione gratuita: https://cds.climate.copernicus.eu/user/register")
+        st.caption(i18n.t("config.cds_hint"))
 
     else:
-        st.info("Nessuna credenziale richiesta per questa scelta.")
+        st.info(i18n.t("config.cred_none"))
 
 
-# ------------------------------------------------------- costruzione config job
+# -------------------------------------------------------------- job config build
 def build_job_config(
     input_path: str,
     sensor: str,
@@ -222,8 +231,8 @@ def build_job_config(
     common_vals: dict,
     advanced: dict,
 ) -> dict:
-    # Passa i parametri di ritaglio solo se l'utente li ha cambiati dai default
-    # (0 / -1): alcune classi Level1 non accettano scol/ecol.
+    # Pass the crop parameters only when the user changed them from the defaults
+    # (0 / -1): some Level1 classes do not accept scol/ecol.
     _crop_defaults = {"sline": 0, "eline": -1, "scol": 0, "ecol": -1}
     l1_kwargs = {
         k: int(common_vals[k])
@@ -253,7 +262,7 @@ def build_job_config(
 
 
 def parse_advanced(text: str) -> dict:
-    """Converte righe 'chiave = valore' in un dizionario (valori come JSON se possibile)."""
+    """Turn 'key = value' lines into a dict (values decoded as JSON when possible)."""
     out: dict = {}
     for raw in text.splitlines():
         raw = raw.strip()
@@ -271,36 +280,36 @@ def parse_advanced(text: str) -> dict:
 def run_job(cfg: dict) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     JOB_TMP.write_text(json.dumps(cfg, indent=2))
-    st.write(f"**Elaborazione di:** `{cfg['input']}`")
+    st.write(i18n.t("process.processing_of", input=cfg["input"]))
     t0 = time.time()
     rc = stream_command([sys.executable, str(APP_DIR / "polymer_job.py"), "--config", str(JOB_TMP)])
     dt = time.time() - t0
     entry = {
-        "quando": datetime.now().isoformat(timespec="seconds"),
+        "when": datetime.now().isoformat(timespec="seconds"),
         "input": cfg["input"],
-        "sensore": cfg["sensor"],
-        "formato": cfg["fmt"],
-        "durata_s": round(dt, 1),
-        "esito": "ok" if rc == 0 else f"errore ({rc})",
+        "sensor": cfg["sensor"],
+        "format": cfg["fmt"],
+        "duration_s": round(dt, 1),
+        "result": "ok" if rc == 0 else f"error ({rc})",
     }
     append_job_log(entry)
 
     if rc != 0:
-        st.error(f"Elaborazione fallita (codice {rc}). Vedi il log qui sopra.")
+        st.error(i18n.t("process.failed", rc=rc))
         return
-    st.success(f"Completato in {dt:.0f} s. Risultati in `data/output/`.")
+    st.success(i18n.t("process.done", dt=dt))
 
     newest = _newest_output()
     if newest is not None:
-        st.write(f"**File prodotto:** `{newest.name}` ({newest.stat().st_size/1e6:.1f} MB)")
+        st.write(i18n.t("process.file_produced", name=newest.name, size=newest.stat().st_size / 1e6))
         try:
             import quicklook
 
             png = CONFIG_DIR / "_preview.png"
             desc = quicklook.make_png(str(newest), str(png))
             st.image(str(png), caption=desc, use_container_width=True)
-        except Exception as exc:  # anteprima non critica
-            st.caption(f"(Anteprima non disponibile: {exc})")
+        except Exception as exc:  # preview is non-critical
+            st.caption(i18n.t("process.preview_unavailable", exc=exc))
 
 
 def _newest_output() -> Path | None:
@@ -313,83 +322,81 @@ def _newest_output() -> Path | None:
     return max(files, key=lambda p: p.stat().st_mtime) if files else None
 
 
-# ---------------------------------------------------------- scheda: elaborazione
+# ---------------------------------------------------------------- processing tab
 def tab_process() -> None:
     if not status.overall_ready():
-        st.warning(
-            "Configurazione incompleta: servono i moduli compilati e i dati ausiliari. "
-            "Apri la scheda **Configurazione**."
-        )
+        st.warning(i18n.t("process.incomplete"))
 
     products = status.list_input_products()
     if not products:
-        st.info(
-            "Nessun prodotto in `data/input/`. Copia lì i tuoi prodotti Level-1 "
-            "(cartelle `.SEN3`, `.SAFE`, file `.N1`, `.L1C`, `.he5` …) e ricarica la pagina."
-        )
+        st.info(i18n.t("process.no_products"))
         return
 
     col_l, col_r = st.columns([2, 1])
     with col_l:
         selected = st.multiselect(
-            "Prodotti Level-1 da elaborare",
+            i18n.t("process.products"),
             products,
             default=products[:1],
-            help="Selezionane più di uno per l'elaborazione in lotto.",
+            help=i18n.t("process.products_help"),
         )
     with col_r:
-        sensor = st.selectbox("Sensore", SENSORS, index=0)
-        fmt = st.selectbox("Formato di output", OUTPUT_FORMATS, index=0)
+        sensor = st.selectbox(i18n.t("process.sensor"), SENSORS, index=0)
+        fmt = st.selectbox(i18n.t("process.fmt"), OUTPUT_FORMATS, index=0)
 
     resolution = "60"
     if sensor == "MSI":
-        resolution = st.selectbox("Risoluzione MSI (m)", ["10", "20", "60"], index=2)
+        resolution = st.selectbox(i18n.t("process.msi_res"), ["10", "20", "60"], index=2)
     if sensor in NEEDS_EXPLICIT_SENSOR:
-        st.caption(
-            f"Il sensore {sensor} non è rilevabile automaticamente: selezionalo qui esplicitamente."
-        )
+        st.caption(i18n.t("process.explicit_sensor", sensor=sensor))
 
     ancillary = st.selectbox(
-        "Dati meteo ausiliari",
-        list(ANCILLARY_SOURCES.keys()),
-        format_func=lambda k: ANCILLARY_SOURCES[k],
+        i18n.t("process.ancillary"),
+        ANCILLARY_SOURCES,
+        format_func=lambda k: i18n.t(f"ancillary.{k}"),
         index=0,
     )
 
-    st.markdown("**Parametri comuni**")
+    st.markdown(i18n.t("process.common_params"))
     common_vals: dict = {}
     cols = st.columns(3)
     for i, p in enumerate(COMMON_PARAMS):
         with cols[i % 3]:
             common_vals[p["name"]] = st.number_input(
-                p["label"], value=int(p["default"]), step=1, help=p["help"], key=f"cp_{p['name']}"
+                i18n.t(f"param.{p['name']}.label"),
+                value=int(p["default"]),
+                step=1,
+                help=i18n.t(f"param.{p['name']}.help"),
+                key=f"cp_{p['name']}",
             )
     c1, c2, c3 = st.columns(3)
     common_vals["water_model"] = c1.selectbox(
-        "Modello dell'acqua", list(WATER_MODELS.keys()),
-        format_func=lambda k: WATER_MODELS[k], index=0,
+        i18n.t("process.water_model"),
+        WATER_MODELS,
+        format_func=lambda k: i18n.t(f"watermodel.{k}"),
+        index=0,
     )
     common_vals["normalize"] = c2.selectbox(
-        "Normalizzazione", list(NORMALIZE.keys()),
-        format_func=lambda k: NORMALIZE[k], index=0,
+        i18n.t("process.normalize"),
+        NORMALIZE,
+        format_func=lambda k: i18n.t(f"normalize.{k}"),
+        index=0,
     )
-    common_vals["force_initialization"] = c3.checkbox("force_initialization", value=False)
+    common_vals["force_initialization"] = c3.checkbox(i18n.t("process.force_init"), value=False)
 
-    with st.expander("Parametri avanzati (una coppia « nome = valore » per riga)"):
-        st.caption(
-            "Passati direttamente a `run_atm_corr`. Riferimento: `polymer/params.py`. "
-            "Esempi:\n\n`Rprime_consistency = false`\n\n`calib = null`"
-        )
-        advanced_text = st.text_area("Avanzati", value="", height=140, label_visibility="collapsed")
+    with st.expander(i18n.t("process.advanced")):
+        st.caption(i18n.t("process.advanced_help"))
+        advanced_text = st.text_area("advanced", value="", height=140, label_visibility="collapsed")
 
     output_name = ""
     if len(selected) == 1:
         output_name = st.text_input(
-            "Nome file di output (facoltativo)", value="",
-            help="Vuoto = nome automatico basato sul prodotto di input.",
+            i18n.t("process.output_name"),
+            value="",
+            help=i18n.t("process.output_name_help"),
         )
 
-    if st.button("▶ Avvia Polymer", type="primary", disabled=not selected):
+    if st.button(i18n.t("process.run"), type="primary", disabled=not selected):
         advanced = parse_advanced(advanced_text)
         progress = st.progress(0.0)
         for idx, name in enumerate(selected):
@@ -410,24 +417,32 @@ def tab_process() -> None:
         st.balloons()
 
 
-# -------------------------------------------------------------- scheda: cronologia
+# ------------------------------------------------------------------ history tab
 def tab_history() -> None:
     rows = read_job_log()
     if not rows:
-        st.info("Nessuna elaborazione registrata finora.")
+        st.info(i18n.t("history.empty"))
         return
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    cols = ["when", "input", "sensor", "format", "duration_s", "result"]
+    display = [
+        {i18n.t(f"history.col.{c}"): r.get(c, "") for c in cols}
+        for r in rows
+    ]
+    st.dataframe(display, use_container_width=True, hide_index=True)
 
 
 # ----------------------------------------------------------------------------- main
 def main() -> None:
+    pick_language()
     if not licence_gate():
         return
     sidebar_status()
     st.title("🌊 Polymer")
-    st.caption("Correzione atmosferica del colore dell'oceano — HYGEOS")
+    st.caption(i18n.t("app.caption"))
 
-    t_proc, t_conf, t_hist = st.tabs(["Elaborazione", "Configurazione", "Cronologia"])
+    t_proc, t_conf, t_hist = st.tabs(
+        [i18n.t("tab.process"), i18n.t("tab.config"), i18n.t("tab.history")]
+    )
     with t_proc:
         tab_process()
     with t_conf:
