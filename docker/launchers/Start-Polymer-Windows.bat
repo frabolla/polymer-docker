@@ -39,10 +39,17 @@ if not exist data\config     mkdir data\config
 REM Let the interface show the folder paths as they are on this computer.
 set "POLYMER_HOST_DIR=%REPO_ROOT%\data"
 
+REM The interface can move the input/output folders; it saves the choice here.
+set "COMPOSE_ENV="
+if exist data\config\dirs.env (
+  set "COMPOSE_ENV=--env-file data\config\dirs.env"
+  echo Using custom input/output folders ^(data\config\dirs.env^).
+)
+
 echo.
 echo Building / starting. The FIRST run takes 10-20 minutes.
 echo.
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose %COMPOSE_ENV% -f docker/docker-compose.yml up -d --build
 if errorlevel 1 (
   echo.
   echo Startup failed. Check the messages above.

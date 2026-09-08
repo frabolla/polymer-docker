@@ -127,6 +127,62 @@ def missing_prisma_companion(l1_path: str | Path) -> str | None:
     return None if (p.parent / comp).exists() else comp
 
 
+# ------------------------------------------------------------ working folders
+# The container's /data/input and /data/output are Docker bind mounts, so where
+# they live on the host is decided *before* the container starts. The interface
+# writes the user's choice to config/dirs.env; the launcher passes it to
+# `docker compose --env-file` on the next start.
+CONFIG_DIR = Path(os.environ.get("HOME", "/data/config"))
+WORKDIRS_FILE = CONFIG_DIR / "dirs.env"
+_WORKDIR_KEYS = {"input": "POLYMER_INPUT_DIR", "output": "POLYMER_OUTPUT_DIR"}
+
+
+def _host_base() -> str:
+    return os.environ.get("POLYMER_HOST_DIR", "").strip()
+
+
+def default_workdirs() -> dict[str, str]:
+    base = _host_base()
+    return {name: (f"{base}/{name}" if base else "") for name in ("input", "output", "config")}
+
+
+def load_workdirs() -> dict:
+    """Effective host paths for input/output/config, plus whether they are custom."""
+    dirs = default_workdirs()
+    custom = False
+    try:
+        for line in WORKDIRS_FILE.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            for name, env in _WORKDIR_KEYS.items():
+                if k.strip() == env and v.strip():
+                    dirs[name] = v.strip()
+                    custom = True
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+    dirs["custom"] = custom
+    return dirs
+
+
+def save_workdirs(input_dir: str, output_dir: str) -> None:
+    """Persist an input/output override for the next container start."""
+    lines = ["# Written by the Polymer interface. Delete to restore the defaults."]
+    for value, env in ((input_dir, "POLYMER_INPUT_DIR"), (output_dir, "POLYMER_OUTPUT_DIR")):
+        value = (value or "").strip()
+        if value:
+            lines.append(f"{env}={value}")
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    WORKDIRS_FILE.write_text("\n".join(lines) + "\n")
+
+
+def clear_workdirs() -> None:
+    WORKDIRS_FILE.unlink(missing_ok=True)
+
+
 def app_version() -> str:
     """Version string: env var, then /app/VERSION, then 'dev'."""
     v = os.environ.get("POLYMER_GUI_VERSION", "").strip()

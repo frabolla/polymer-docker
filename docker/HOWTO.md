@@ -136,6 +136,12 @@ leave the app open.
 
 ## Part 5 — Set up Polymer (in the web page)
 
+The **first launch** shows a single focused page, **"Set up Polymer — one
+time"**, with a 3-step checklist. Work through it once; when every step is
+green the page is replaced by the normal interface, where **Processing** is the
+main tab. (The steps below are that checklist. In later sessions the same
+controls live on the **Setup** tab.)
+
 ### 5.1 Language
 
 At the **top-left** of the page there is a **Language** menu. English is the

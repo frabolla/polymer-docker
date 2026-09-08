@@ -67,9 +67,14 @@ When it is ready, the browser opens by itself at **<http://localhost:8501>**.
 
 ## 4. First-time setup (in the interface)
 
+The first launch opens a focused **"Set up Polymer — one time"** page. When the
+three steps below are done it is replaced by the working interface, where
+**Processing** is the main tab. Everything you enter is saved in `data/config/`
+and reused automatically on every later start.
+
 1. **Accept Polymer's Terms of use.**
-2. **Setup → Download auxiliary data** (about 1 GB, once).
-3. *(Optional)* **Setup → Meteorological data credentials**: enter your
+2. **Download auxiliary data** (about 1 GB, once).
+3. **Meteorological data credentials**: enter your
    [NASA Earthdata](https://urs.earthdata.nasa.gov/users/new) username/password
    or your [CDS API key](https://cds.climate.copernicus.eu/user/register).
    Without credentials, Polymer still works for most sensors using built-in
@@ -84,6 +89,8 @@ When it is ready, the browser opens by itself at **<http://localhost:8501>**.
    MERIS, `.L1C` for MODIS/VIIRS/SeaWiFS…) **or** with the **Upload a product**
    panel on the Processing tab (drop a `.zip` for folder products, or a
    single-file product).
+   *To keep the data elsewhere (e.g. an external drive), use **Working folders →
+   Change the input / output folders** and restart with the launcher.*
 2. On the **Processing** tab: pick the product; with sensor `auto` the
    interface shows the detected sensor (for **PRISMA** and **HICO** choose it
    manually); set the output format and the parameters.

@@ -226,6 +226,53 @@ _STRINGS: dict[str, dict[str, str]] = {
               "sul computer non sono noti. Sono le cartelle `data/input`, "
               "`data/output` e `data/config` accanto al launcher.",
     },
+    "folders.change_button": {
+        "en": "Change the input / output folders…",
+        "it": "Cambia le cartelle input / output…",
+    },
+    "folders.change_title": {
+        "en": "Choose the input and output folders",
+        "it": "Scegli le cartelle di input e output",
+    },
+    "folders.change_hint": {
+        "en": "Type or paste a full folder path from this computer (e.g. an "
+              "external drive). The **config** folder cannot be moved. The change "
+              "takes effect the next time you start Polymer with the launcher.",
+        "it": "Digita o incolla il percorso completo di una cartella di questo "
+              "computer (es. un disco esterno). La cartella **config** non si può "
+              "spostare. La modifica ha effetto al prossimo avvio di Polymer dal "
+              "launcher.",
+    },
+    "folders.save": {"en": "Save", "it": "Salva"},
+    "folders.saved_restart": {
+        "en": "Saved. Close Polymer and start it again with the launcher to use "
+              "the new folders.",
+        "it": "Salvato. Chiudi Polymer e riavvialo dal launcher per usare le "
+              "nuove cartelle.",
+    },
+    "folders.reset": {"en": "Back to default", "it": "Torna ai valori predefiniti"},
+    "folders.reset_done": {
+        "en": "Reset. Restart Polymer to use the default folders.",
+        "it": "Ripristinato. Riavvia Polymer per usare le cartelle predefinite.",
+    },
+    "folders.custom_active": {
+        "en": "Custom input/output folders are set (active after the next start).",
+        "it": "Sono impostate cartelle input/output personalizzate (attive dal "
+              "prossimo avvio).",
+    },
+    "firstrun.title": {
+        "en": "Set up Polymer — one time", "it": "Configura Polymer — una volta sola",
+    },
+    "firstrun.intro": {
+        "en": "Two quick steps before your first processing. Once both are done "
+              "this page is replaced by the working interface, and **Processing** "
+              "becomes the main tab. What you enter here is saved and reused on "
+              "every later start.",
+        "it": "Due passaggi rapidi prima della prima elaborazione. Completati "
+              "entrambi, questa pagina lascia il posto all'interfaccia di lavoro "
+              "e **Elaborazione** diventa la scheda principale. Ciò che inserisci "
+              "qui viene salvato e riutilizzato a ogni avvio successivo.",
+    },
 
     # -- in-app guide
     "guide.intro": {

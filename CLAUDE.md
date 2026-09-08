@@ -36,11 +36,14 @@ work continues on a local branch also named `polymer-docker-container` in the
 worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
 
 **Verified working:**
-- Image builds natively on amd64 and arm64 (multi-stage); 46-test pytest suite
+- Image builds natively on amd64 and arm64 (multi-stage); 49-test pytest suite
   passes (`test_quicklook.py` is skipped where xarray/netCDF4 are absent, e.g.
   the lean CI `test` job; it runs in the image).
 - Container starts, `/_stcore/health` OK, UI loads in EN and IT, language
-  persists, licence gate, all 5 tabs render, no runtime errors.
+  persists, licence gate. First launch shows the focused one-time setup page
+  (no tabs); once modules + auxdata + a credential are all present it switches
+  to the 5-tab layout (Processing first and bold). Verified both states + the
+  sidebar footer + the polymer-chain logo + the "change folders" dialog render.
 - Credential files written `0600`, `/data/config` is `0700`.
 - `from polymer.main import run_atm_corr` imports cleanly.
 - **Full end-to-end run — SUCCEEDED** (2026-09-08, arm64, image `test-e2e`).
@@ -76,10 +79,14 @@ docker/
                              Saves ~250 MB (toolchain not shipped). Image ~4.6 GB
                              — see §7 note.
   docker-compose.yml         service "polymer"; port 127.0.0.1:8501; binds
-                             ../data/{input,output,auxdata,ancillary,config};
+                             ../data/{auxdata,ancillary,config} plus
+                             ${POLYMER_INPUT_DIR:-../data/input} and
+                             ${POLYMER_OUTPUT_DIR:-../data/output} (the UI's
+                             "change folders" dialog writes config/dirs.env; the
+                             launcher passes it via `docker compose --env-file`).
                              env POLYMER_HOST_DIR (host path of data/, set by the
-                             launchers) → shown in the UI's "Working folders";
-                             shm_size 2gb; healthcheck on /_stcore/health
+                             launchers) → shown in "Working folders". shm_size
+                             2gb; healthcheck on /_stcore/health
   environment.yml (repo root)  exact conda linux-64 lock (amd64) — UPSTREAM file
   docker/environment.arm64.yml version-floor spec for aarch64, solved fresh;
                              keep in sync with pyproject.toml [tool.pixi.deps]
@@ -91,18 +98,23 @@ docker/
                              cd /app; exec `streamlit run`
   app/
     .streamlit/config.toml   light theme, toolbarMode=minimal, maxUploadSize=2048
-    streamlit_app.py         the whole UI. Tabs: Processing / Setup / Guide /
-                             Results / History. Header has a small inline-SVG
-                             water-drop mark (no official Polymer logo exists).
-                             render_getting_started() = 3-step checklist;
+    streamlit_app.py         the whole UI. is_configured() gates the layout:
+                             NOT configured -> render_first_run() (focused
+                             one-time setup page, no tabs); configured -> tabs in
+                             priority order Processing / Results / Setup / History
+                             / Guide, with Processing bold as the primary one.
+                             Header: inline-SVG mark of a water drop drawn as a
+                             polymer chain (no official Polymer logo ships).
+                             render_sidebar() carries the fork note + the (small)
+                             Francesco Tarini attribution at the sidebar bottom.
                              render_last_result() = success panel + chime +
-                             download; render_folders() = host paths w/ copy
-                             buttons; render_footer() carries the (now small)
-                             Francesco Tarini attribution.
+                             download. render_folders() shows the host paths with
+                             copy buttons + a "change input/output folders"
+                             st.dialog (_workdirs_dialog).
     i18n.py                  t() + EN/IT string table (_STRINGS); language saved
                              in /data/config/.polymer_lang
-    sound.py                 chime_data_uri(): a short success WAV built in
-                             memory, returned as a data: URI (no audio asset)
+    sound.py                 chime_wav_bytes(): a short success WAV built in
+                             memory for st.audio(autoplay=True) (no audio asset)
     params_schema.py         structural param data only. OUTPUT_FORMATS =
                              ["hdf4", "netcdf4"] — HDF is the default output
     polymer_job.py           subprocess: builds Level1/Level2, calls
@@ -117,7 +129,9 @@ docker/
     setup_status.py          verify_auxdata(), free_space_mb(),
                              list_input_products() (hides PRS_L2C_STD_*, adds
                              */GRANULE/*), prisma_l2c_name(),
-                             missing_prisma_companion(), app_version()
+                             missing_prisma_companion(), app_version(),
+                             load_workdirs()/save_workdirs()/clear_workdirs()
+                             (input/output host-path override -> config/dirs.env)
     credentials.py           read/write ~/.netrc (NASA) and ~/.cdsapirc (CDS);
                              test_earthdata()/test_cds() best-effort HTTP checks
     uploads.py               st.file_uploader handler: .zip → safe-extract,
@@ -190,8 +204,10 @@ VERSION                     "0.1.0" — read by app_version() (COPYd to /app/VER
 - **`render_running`** polls with `time.sleep(2); st.rerun()` while a job runs —
   the standard Streamlit pattern; it re-executes the whole page every 2 s.
 - **Persistent state** lives only in the bind-mounted `data/`:
-  `data/config/{.netrc,.cdsapirc,.polymer_licence_accepted,.polymer_lang}`,
-  `data/auxdata`, `data/ancillary`, `data/output/{_jobs.log,_run/}`.
+  `data/config/{.netrc,.cdsapirc,.polymer_licence_accepted,.polymer_lang,
+  dirs.env}`, `data/auxdata`, `data/ancillary`, `data/output/{_jobs.log,_run/}`.
+  `dirs.env` (optional) holds `POLYMER_INPUT_DIR` / `POLYMER_OUTPUT_DIR` when the
+  user moved those folders; the launcher feeds it to `docker compose --env-file`.
 
 ## 5. Localization rules
 

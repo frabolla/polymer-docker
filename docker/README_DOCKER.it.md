@@ -69,9 +69,14 @@ Quando è pronto, il browser si apre da solo su **<http://localhost:8501>**.
 
 ## 4. Prima configurazione (nell'interfaccia)
 
+Al primo avvio si apre una pagina dedicata **"Configura Polymer — una volta
+sola"**. Completati i tre passaggi qui sotto, lascia il posto all'interfaccia di
+lavoro, dove **Elaborazione** è la scheda principale. Tutto ciò che inserisci
+viene salvato in `data/config/` e riutilizzato a ogni avvio successivo.
+
 1. **Accetta i Termini d'uso** di Polymer.
-2. Scheda **Configurazione → Scarica dati ausiliari** (circa 1 GB, una volta sola).
-3. *(Facoltativo)* Scheda **Configurazione → Credenziali dati meteo**: inserisci
+2. **Scarica dati ausiliari** (circa 1 GB, una volta sola).
+3. **Credenziali dati meteo**: inserisci
    l'utente/password di [NASA Earthdata](https://urs.earthdata.nasa.gov/users/new)
    oppure la [CDS API key](https://cds.climate.copernicus.eu/user/register).
    Senza credenziali, Polymer funziona per la maggior parte dei sensori usando
@@ -86,6 +91,8 @@ Quando è pronto, il browser si apre da solo su **<http://localhost:8501>**.
    MODIS/VIIRS/SeaWiFS…) **oppure** con il pannello **Carica un prodotto** nella
    scheda Elaborazione (trascina uno `.zip` per i prodotti a cartella, o un
    prodotto a file singolo).
+   *Per tenere i dati altrove (es. un disco esterno) usa **Cartelle di lavoro →
+   Cambia le cartelle input / output** e riavvia dal launcher.*
 2. Nella scheda **Elaborazione**: seleziona il prodotto; con sensore `auto`
    l'interfaccia mostra il sensore rilevato (per **PRISMA** e **HICO** sceglilo a
    mano); imposta formato di output e parametri.

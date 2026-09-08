@@ -77,3 +77,36 @@ def test_prisma_companion_detection(tmp_path):
 
     (tmp_path / "scene.nc").write_bytes(b"x")
     assert status.missing_prisma_companion(tmp_path / "scene.nc") is None
+
+
+def test_workdirs_default_and_override(tmp_path, monkeypatch):
+    monkeypatch.setattr(status, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(status, "WORKDIRS_FILE", tmp_path / "dirs.env")
+    monkeypatch.setenv("POLYMER_HOST_DIR", "/host/polymer/data")
+
+    d = status.load_workdirs()
+    assert d["input"] == "/host/polymer/data/input"
+    assert d["output"] == "/host/polymer/data/output"
+    assert d["custom"] is False
+
+    status.save_workdirs("/mnt/ext/in", "  /mnt/ext/out  ")
+    text = (tmp_path / "dirs.env").read_text()
+    assert "POLYMER_INPUT_DIR=/mnt/ext/in" in text
+    assert "POLYMER_OUTPUT_DIR=/mnt/ext/out" in text
+
+    d = status.load_workdirs()
+    assert d["input"] == "/mnt/ext/in" and d["output"] == "/mnt/ext/out"
+    assert d["config"] == "/host/polymer/data/config"  # config never moves
+    assert d["custom"] is True
+
+    status.clear_workdirs()
+    assert not (tmp_path / "dirs.env").exists()
+    assert status.load_workdirs()["custom"] is False
+
+
+def test_workdirs_no_host_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(status, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(status, "WORKDIRS_FILE", tmp_path / "dirs.env")
+    monkeypatch.delenv("POLYMER_HOST_DIR", raising=False)
+    d = status.load_workdirs()
+    assert d["input"] == "" and d["custom"] is False

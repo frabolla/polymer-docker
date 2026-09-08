@@ -43,12 +43,16 @@ command line.
 
    The first build takes **10–20 minutes** (it downloads ~4 GB of scientific
    libraries and compiles the modules). This happens only once.
-4. The browser opens at **<http://localhost:8501>**. In the page:
+4. The browser opens at **<http://localhost:8501>**. The first launch shows a
+   one-time **"Set up Polymer"** page:
    - accept the **Terms of use**;
-   - **Setup** tab → **Download auxiliary data** (~1 GB, once);
-   - *(optional)* enter a **NASA Earthdata** or **Copernicus CDS** account so
-     Polymer can fetch weather data automatically (otherwise built-in
-     climatologies are used).
+   - **Download auxiliary data** (~1 GB, once);
+   - enter a **NASA Earthdata** or **Copernicus CDS** account so Polymer can
+     fetch weather data (built-in climatologies cover most sensors, but **not
+     PRISMA**). It is saved and reused on every later start.
+
+   When the checklist is complete the page becomes the tabbed interface, with
+   **Processing** as the main tab.
 5. Put your **Level-1** products in the `data/input/` folder next to the project
    (`.SEN3` folders for Sentinel-3 OLCI, `.SAFE` for Sentinel-2 MSI, `.he5` for
    PRISMA, `.N1` for MERIS, `.L1C` for MODIS/VIIRS/SeaWiFS) — or use the in-app

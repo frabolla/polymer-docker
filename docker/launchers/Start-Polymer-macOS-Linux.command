@@ -41,10 +41,17 @@ mkdir -p data/input data/output data/auxdata data/ancillary data/config
 # Let the interface show the folder paths as they are on this computer.
 export POLYMER_HOST_DIR="$REPO_ROOT/data"
 
+# The interface can move the input/output folders; it saves the choice here.
+COMPOSE_ENV=""
+if [ -f data/config/dirs.env ]; then
+  COMPOSE_ENV="--env-file data/config/dirs.env"
+  echo "Using custom input/output folders (data/config/dirs.env)."
+fi
+
 echo
 echo "Building / starting. The FIRST run takes 10-20 minutes."
 echo
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose $COMPOSE_ENV -f docker/docker-compose.yml up -d --build
 
 echo
 echo "Waiting for the interface to be ready..."

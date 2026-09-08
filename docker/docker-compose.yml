@@ -35,8 +35,11 @@ services:
       # port is already taken.
       - "127.0.0.1:8501:8501"
     volumes:
-      - ../data/input:/data/input
-      - ../data/output:/data/output
+      # input / output can be pointed elsewhere from the interface ("Change the
+      # input / output folders") — the launcher passes the saved override via
+      # `docker compose --env-file`. The rest stay next to the repository.
+      - ${POLYMER_INPUT_DIR:-../data/input}:/data/input
+      - ${POLYMER_OUTPUT_DIR:-../data/output}:/data/output
       - ../data/auxdata:/data/auxdata
       - ../data/ancillary:/data/ancillary
       - ../data/config:/data/config

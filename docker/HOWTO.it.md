@@ -140,6 +140,13 @@ finestra; lascia l'app aperta.
 
 ## Parte 5 — Configurare Polymer (nella pagina web)
 
+Al **primo avvio** compare un'unica pagina dedicata, **"Configura Polymer — una
+volta sola"**, con una lista di 3 passaggi. Completala una volta; quando tutti i
+passaggi sono verdi la pagina lascia il posto all'interfaccia normale, dove
+**Elaborazione** è la scheda principale. (I passaggi qui sotto sono quella
+lista. Nelle sessioni successive gli stessi comandi sono nella scheda
+**Configurazione**.)
+
 ### 5.1 Lingua
 
 In **alto a sinistra** nella pagina c'è un menu **Lingua**. L'inglese è

@@ -7,6 +7,10 @@ Nothing to type on a command line: every parameter is set from here.
 Polymer's job is atmospheric correction only. The deliverable is the corrected
 Level-2 image file (HDF by default); the small preview is just a visual check.
 
+Flow: the first launch shows a focused one-time setup page. Once the setup is
+complete the interface switches to its tabbed form, with **Processing** as the
+main tab.
+
 English is the primary language; Italian can be selected in the sidebar.
 """
 from __future__ import annotations
@@ -44,21 +48,25 @@ LICENCE_FLAG = CONFIG_DIR / ".polymer_licence_accepted"
 OUTPUT_DIR = Path("/data/output")
 INPUT_DIR = Path("/data/input")
 
-# Host-side path of the folder that holds input/ output/ config/ (set by the
-# launcher via docker-compose). Empty when the container was started by hand.
-HOST_DIR = os.environ.get("POLYMER_HOST_DIR", "").strip()
-
 st.set_page_config(
     page_title="Polymer", page_icon=":material/water_drop:", layout="wide"
 )
 
-# A plain water-drop mark (no official Polymer logo ships with the source).
+# A water drop drawn as a polymer chain: a zig-zag backbone with monomer nodes
+# and two pendant groups, inside a drop outline. Nods to the project name.
 _LOGO_SVG = (
-    "<svg width='34' height='34' viewBox='0 0 24 24' fill='none' "
-    "xmlns='http://www.w3.org/2000/svg'><path d='M12 2.5c4 5 6.5 8.2 6.5 11.4A6.5 "
-    "6.5 0 0 1 5.5 13.9C5.5 10.7 8 7.5 12 2.5Z' fill='#2E7D9A'/>"
-    "<path d='M9.2 12.4c0 2 1.5 3.4 3.3 3.6' stroke='#fff' stroke-width='1.4' "
-    "stroke-linecap='round'/></svg>"
+    "<svg width='38' height='38' viewBox='0 0 40 40' fill='none' "
+    "xmlns='http://www.w3.org/2000/svg'>"
+    "<path d='M20 3C27 12 32 18.5 32 25a12 12 0 0 1-24 0C8 18.5 13 12 20 3Z' "
+    "fill='#CDE7F0' stroke='#2E7D9A' stroke-width='2'/>"
+    "<path d='M10 28 L15 22 L20 28 L25 22 L30 28 M15 22 L15 16 M25 22 L25 16' "
+    "stroke='#1B5566' stroke-width='1.7' stroke-linecap='round' "
+    "stroke-linejoin='round'/>"
+    "<g fill='#1B5566'>"
+    "<circle cx='10' cy='28' r='2.1'/><circle cx='15' cy='22' r='2.1'/>"
+    "<circle cx='20' cy='28' r='2.1'/><circle cx='25' cy='22' r='2.1'/>"
+    "<circle cx='30' cy='28' r='2.1'/>"
+    "<circle cx='15' cy='16' r='1.7'/><circle cx='25' cy='16' r='1.7'/></g></svg>"
 )
 
 # Hide Streamlit's own chrome (the "Deploy" button, the hamburger menu and the
@@ -75,12 +83,18 @@ st.markdown(
       footer {visibility: hidden !important;}
       .polymer-head {display:flex; align-items:center; gap:.6rem; margin-bottom:.1rem;}
       .polymer-head h1 {margin:0; font-size:2.1rem;}
-      .polymer-foot {margin-top:2.5rem; padding-top:.6rem; border-top:1px solid #e6e6e6;
-                     color:#8a8a8a; font-size:.78rem;}
+      .sidebar-foot {margin-top:1.4rem; padding-top:.7rem; border-top:1px solid #d9e2e6;
+                     color:#8a8a8a; font-size:.72rem; line-height:1.35;}
+      /* make the first tab (Processing) read as the primary one */
+      .stTabs [data-baseweb="tab-list"] button:first-child p {font-weight:700;}
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+# Plain typographic status marks (no emoji).
+_MARK_OK = "✓"
+_MARK_TODO = "–"
 
 
 # --------------------------------------------------------------------- language
@@ -107,11 +121,6 @@ def pick_language() -> None:
     i18n.set_lang(choice)
 
 
-# Plain typographic status marks (no emoji).
-_MARK_OK = "✓"       # check mark
-_MARK_TODO = "–"     # en dash
-
-
 # ------------------------------------------------------------------ licence gate
 def licence_gate() -> bool:
     if LICENCE_FLAG.exists():
@@ -133,7 +142,7 @@ def licence_gate() -> bool:
     return False
 
 
-# ---------------------------------------------------------------- sidebar status
+# ---------------------------------------------------------------- setup status
 def _mark(ok: bool) -> str:
     return _MARK_OK if ok else _MARK_TODO
 
@@ -148,7 +157,11 @@ def _config_steps() -> list[tuple[bool, str]]:
     ]
 
 
-def sidebar_status() -> None:
+def is_configured() -> bool:
+    return all(done for done, _ in _config_steps())
+
+
+def render_sidebar() -> None:
     st.sidebar.header(i18n.t("status.header"))
     for done, label in _config_steps():
         st.sidebar.write(_mark(done) + " " + label)
@@ -160,35 +173,130 @@ def sidebar_status() -> None:
         st.sidebar.caption(i18n.t("status.cds") + ": " + i18n.t("check.saved_short"))
 
     st.sidebar.divider()
-    if not status.auxdata_present():
-        st.sidebar.info(i18n.t("status.need_auxdata"))
     st.sidebar.caption(i18n.t("sidebar.freespace", mb=status.free_space_mb()))
     st.sidebar.caption(i18n.t("sidebar.version", v=status.app_version()))
 
+    # Project / attribution footer, at the bottom of the sidebar.
+    st.sidebar.markdown(
+        f"<div class='sidebar-foot'>{i18n.t('app.fork_note')}<br>{i18n.t('app.author')}"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_header() -> None:
+    st.markdown(
+        f"<div class='polymer-head'>{_LOGO_SVG}<h1>Polymer</h1></div>",
+        unsafe_allow_html=True,
+    )
+    st.caption(i18n.t("app.caption"))
+
 
 # --------------------------------------------------------------- working folders
-def _host_path(sub: str) -> str:
-    if HOST_DIR:
-        return str(Path(HOST_DIR) / sub)
-    return f"/data/{sub}   ({i18n.t('folders.in_container')})"
+@st.dialog("Polymer")  # translated heading is rendered inside the body
+def _workdirs_dialog() -> None:
+    st.subheader(i18n.t("folders.change_title"))
+    st.caption(i18n.t("folders.change_hint"))
+    dirs = status.load_workdirs()
+    new_in = st.text_input(i18n.t("folders.input"), value=dirs["input"])
+    new_out = st.text_input(i18n.t("folders.output"), value=dirs["output"])
+    c1, c2 = st.columns(2)
+    if c1.button(i18n.t("folders.save"), type="primary"):
+        status.save_workdirs(new_in, new_out)
+        st.success(i18n.t("folders.saved_restart"))
+    if dirs["custom"] and c2.button(i18n.t("folders.reset")):
+        status.clear_workdirs()
+        st.success(i18n.t("folders.reset_done"))
 
 
-def render_folders(context: str) -> None:
+def render_folders(context: str = "all") -> None:
     """Show the on-disk locations of the work folders, with copy buttons."""
+    dirs = status.load_workdirs()
+    have_host = bool(dirs["input"])
     with st.expander(i18n.t("folders.header"), expanded=False):
         st.caption(i18n.t("folders.open_hint"))
-        st.write("**" + i18n.t("folders.input") + "**")
-        st.code(_host_path("input"), language="text")
+
+        def _row(label_key: str, path: str) -> None:
+            st.write("**" + i18n.t(label_key) + "**")
+            st.code(path or f"/data/{label_key.split('.')[-1]}", language="text")
+
+        _row("folders.input", dirs["input"])
         if context != "input_only":
-            st.write("**" + i18n.t("folders.output") + "**")
-            st.code(_host_path("output"), language="text")
-        st.write("**" + i18n.t("folders.config") + "**")
-        st.code(_host_path("config"), language="text")
-        if not HOST_DIR:
+            _row("folders.output", dirs["output"])
+        _row("folders.config", dirs["config"])
+
+        if not have_host:
             st.caption(i18n.t("folders.container_note"))
+        else:
+            if dirs["custom"]:
+                st.caption(i18n.t("folders.custom_active"))
+            if st.button(i18n.t("folders.change_button")):
+                _workdirs_dialog()
 
 
-# --------------------------------------------------------------------- setup tab
+# ------------------------------------------------------- setup: auxdata section
+def render_auxdata_section() -> None:
+    st.subheader(i18n.t("config.aux_header"))
+    st.write(i18n.t("config.aux_text"))
+
+    ok_aux, problems = status.verify_auxdata()
+    if ok_aux:
+        st.success(i18n.t("config.aux_present", size=status.auxdata_size_mb()))
+    elif problems and status.auxdata_size_mb() > 0:
+        st.warning("\n".join("- " + p for p in problems))
+
+    free = status.free_space_mb()
+    if free < 2000:
+        st.warning(i18n.t("config.low_disk", mb=free))
+
+    aux = aux_job.status()
+    if aux["running"]:
+        st.info(i18n.t("config.aux_running", s=aux["elapsed_s"]))
+        st.progress(0.0, text=i18n.t("run.phase_download"))
+        if aux["tail"]:
+            with st.expander(i18n.t("config.aux_log"), expanded=False):
+                st.code(aux["tail"], language="text")
+        if st.button(i18n.t("config.aux_cancel")):
+            aux_job.cancel()
+            st.rerun()
+        time.sleep(2)
+        st.rerun()
+        return
+
+    if aux["rc"] is not None:
+        if aux["rc"] == 0 and ok_aux:
+            st.success(i18n.t("config.aux_ok"))
+        elif aux["rc"] == 130:
+            st.warning(i18n.t("config.aux_cancelled"))
+        else:
+            st.error(
+                "\n".join(
+                    [i18n.t("config.aux_fail", rc=aux["rc"])]
+                    + ["- " + p for p in problems]
+                )
+            )
+        if aux["tail"]:
+            with st.expander(i18n.t("config.aux_log")):
+                st.code(aux["tail"], language="text")
+        if st.button(i18n.t("config.aux_dismiss")):
+            aux_job.clear()
+            st.rerun()
+    if st.button(i18n.t("config.aux_button"), type="primary", disabled=free < 500):
+        if aux_job.start():
+            st.rerun()
+
+
+# --------------------------------------------------- setup: credentials section
+def _show_cred_test(result: tuple[str, str]) -> None:
+    verdict, msg = result
+    if verdict == "ok":
+        st.success(i18n.t("config.cred_test_ok"))
+    elif verdict == "bad":
+        st.error(i18n.t("config.cred_test_bad", msg=msg))
+    else:
+        st.info(i18n.t("config.cred_test_skip", msg=msg))
+
+
 def _cred_box(kind: str) -> None:
     """One bordered credential panel: current state + Save / Verify / Remove."""
     with st.container(border=True):
@@ -254,68 +362,10 @@ def _cred_box(kind: str) -> None:
             st.caption(i18n.t("config.cds_hint"))
 
 
-def tab_config() -> None:
-    # 1. what this tab is for
-    st.info(i18n.t("config.intro"))
-
-    # 2. static auxiliary data (downloaded once, by the user)
-    st.subheader(i18n.t("config.aux_header"))
-    st.write(i18n.t("config.aux_text"))
-
-    ok_aux, problems = status.verify_auxdata()
-    if ok_aux:
-        st.success(i18n.t("config.aux_present", size=status.auxdata_size_mb()))
-    elif problems and status.auxdata_size_mb() > 0:
-        st.warning("\n".join("- " + p for p in problems))
-
-    free = status.free_space_mb()
-    if free < 2000:
-        st.warning(i18n.t("config.low_disk", mb=free))
-
-    aux = aux_job.status()
-    if aux["running"]:
-        st.info(i18n.t("config.aux_running", s=aux["elapsed_s"]))
-        st.progress(0.0, text=i18n.t("run.phase_download"))
-        if aux["tail"]:
-            with st.expander(i18n.t("config.aux_log"), expanded=False):
-                st.code(aux["tail"], language="text")
-        if st.button(i18n.t("config.aux_cancel")):
-            aux_job.cancel()
-            st.rerun()
-        time.sleep(2)
-        st.rerun()
-    else:
-        if aux["rc"] is not None:
-            if aux["rc"] == 0 and ok_aux:
-                st.success(i18n.t("config.aux_ok"))
-            elif aux["rc"] == 130:
-                st.warning(i18n.t("config.aux_cancelled"))
-            else:
-                st.error(
-                    "\n".join(
-                        [i18n.t("config.aux_fail", rc=aux["rc"])]
-                        + ["- " + p for p in problems]
-                    )
-                )
-            if aux["tail"]:
-                with st.expander(i18n.t("config.aux_log")):
-                    st.code(aux["tail"], language="text")
-            if st.button(i18n.t("config.aux_dismiss")):
-                aux_job.clear()
-                st.rerun()
-        if st.button(
-            i18n.t("config.aux_button"), type="primary", disabled=free < 500
-        ):
-            if aux_job.start():
-                st.rerun()
-
-    st.divider()
-
-    # 3. meteorological-data credentials (saved and reused)
+def render_credentials_section() -> None:
     st.subheader(i18n.t("config.cred_header"))
     st.write(i18n.t("config.cred_text"))
     st.caption(i18n.t("config.cred_persist"))
-
     src = st.radio(
         i18n.t("config.cred_source"),
         options=["NASA", "ERA5"],
@@ -325,18 +375,33 @@ def tab_config() -> None:
     )
     _cred_box(src)
 
+
+# ------------------------------------------------------------- first-run setup
+def render_first_run() -> None:
+    """Focused one-time setup page shown until the configuration is complete."""
+    st.header(i18n.t("firstrun.title"))
+    st.write(i18n.t("firstrun.intro"))
+
+    with st.container(border=True):
+        for n, (done, label) in enumerate(_config_steps(), 1):
+            st.markdown(f"{_mark(done)} **{n}.** {label}")
+
+    st.divider()
+    render_auxdata_section()
+    st.divider()
+    render_credentials_section()
     st.divider()
     render_folders("all")
 
 
-def _show_cred_test(result: tuple[str, str]) -> None:
-    verdict, msg = result
-    if verdict == "ok":
-        st.success(i18n.t("config.cred_test_ok"))
-    elif verdict == "bad":
-        st.error(i18n.t("config.cred_test_bad", msg=msg))
-    else:
-        st.info(i18n.t("config.cred_test_skip", msg=msg))
+# --------------------------------------------------------------- setup tab
+def tab_config() -> None:
+    st.info(i18n.t("config.intro"))
+    render_auxdata_section()
+    st.divider()
+    render_credentials_section()
+    st.divider()
+    render_folders("all")
 
 
 # -------------------------------------------------------------- job config build
@@ -350,8 +415,6 @@ def build_job_config(
     common_vals: dict,
     advanced: dict,
 ) -> dict:
-    # Pass the crop parameters only when the user changed them from the defaults
-    # (0 / -1): some Level1 classes do not accept scol/ecol.
     _crop_defaults = {"sline": 0, "eline": -1, "scol": 0, "ecol": -1}
     l1_kwargs = {
         k: int(common_vals[k])
@@ -396,9 +459,8 @@ def parse_advanced(text: str) -> dict:
     return out
 
 
-# --------------------------------------------------------- running job / batch UI
+# --------------------------------------------------------- running job / done UI
 def _phase(log_text: str, blocks_done: int) -> str:
-    """A one-line human description of what the job is doing right now."""
     if blocks_done > 0:
         return i18n.t("run.phase_processing")
     low = log_text.lower()
@@ -456,7 +518,6 @@ def render_running(stt: dict) -> None:
 
 
 def render_last_result() -> None:
-    """Big success / failure panel for the most recent batch, with a chime."""
     batch_id = st.session_state.get("last_batch")
     if not batch_id:
         return
@@ -473,7 +534,6 @@ def render_last_result() -> None:
     else:
         st.error(i18n.t("done.failed", n=len(fail_rows)))
 
-    # Play the chime once, on the first render after the batch finishes.
     played_key = f"chime_{batch_id}"
     if ok_rows and not st.session_state.get(played_key):
         st.session_state[played_key] = True
@@ -527,25 +587,12 @@ def render_uploader() -> None:
 
 
 def _autodetect_sensor(name: str) -> str | None:
-    """Polymer's file-name-based sensor detection (no file is opened)."""
     try:
         from polymer.level1 import Level1
 
         return Level1(str(INPUT_DIR / name)).sensor
     except Exception:
         return None
-
-
-def render_getting_started() -> None:
-    """Numbered checklist shown until the setup is complete."""
-    with st.container(border=True):
-        st.markdown("### " + i18n.t("process.checklist_header"))
-        st.caption(i18n.t("process.checklist_intro"))
-        steps = _config_steps()
-        for n, (done, label) in enumerate(steps, 1):
-            st.markdown(f"{_mark(done)} **{n}.** {label}")
-        if not all(d for d, _ in steps):
-            st.info(i18n.t("process.go_setup"))
 
 
 # ---------------------------------------------------------------- processing tab
@@ -557,11 +604,6 @@ def tab_process() -> None:
         return
 
     render_last_result()
-
-    if not status.overall_ready() or not (
-        cred.status()["earthdata"] or cred.status()["cds"]
-    ):
-        render_getting_started()
 
     render_uploader()
 
@@ -648,7 +690,6 @@ def tab_process() -> None:
             help=i18n.t("process.output_name_help"),
         )
 
-    # PRISMA needs the L1 *and* its L2C companion, plus meteo credentials.
     prisma_block = False
     prisma_selected = any(
         sensor == "PRISMA" or Path(n).name.startswith("PRS_L1_STD_OFFL_")
@@ -703,14 +744,11 @@ def tab_process() -> None:
 # ------------------------------------------------------------------- guide tab
 def tab_guide() -> None:
     st.write(i18n.t("guide.intro"))
-
     st.subheader(i18n.t("guide.first_header"))
     st.markdown(i18n.t("guide.first_body"))
-
     st.divider()
     st.subheader(i18n.t("guide.update_header"))
     st.markdown(i18n.t("guide.update_body"))
-
     st.divider()
     st.subheader(i18n.t("guide.about_header"))
     st.markdown(i18n.t("guide.about_body"))
@@ -739,11 +777,7 @@ def tab_results() -> None:
         render_folders("output_only")
         return
 
-    pick = st.selectbox(
-        i18n.t("results.pick"),
-        files,
-        format_func=lambda p: p.name,
-    )
+    pick = st.selectbox(i18n.t("results.pick"), files, format_func=lambda p: p.name)
     stat = pick.stat()
     size_mb = stat.st_size / 1e6
     when = datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds")
@@ -762,7 +796,6 @@ def tab_results() -> None:
 
     render_folders("output_only")
 
-    # Optional visual check that the correction ran — not a mapping tool.
     with st.expander(i18n.t("results.preview_header"), expanded=False):
         st.caption(i18n.t("results.preview_hint"))
         if st.button(i18n.t("results.preview_make")):
@@ -793,49 +826,41 @@ def tab_history() -> None:
     st.dataframe(display, width="stretch", hide_index=True)
 
 
-def render_footer() -> None:
-    st.markdown(
-        f"<div class='polymer-foot'>{i18n.t('app.footer')}</div>",
-        unsafe_allow_html=True,
-    )
-
-
 # ----------------------------------------------------------------------------- main
 def main() -> None:
     pick_language()
     if not licence_gate():
         return
-    job_runner.poll()  # keep job state fresh regardless of the active tab
-    sidebar_status()
+    job_runner.poll()
+    render_sidebar()
+    render_header()
 
-    st.markdown(
-        f"<div class='polymer-head'>{_LOGO_SVG}<h1>Polymer</h1></div>",
-        unsafe_allow_html=True,
-    )
-    st.caption(i18n.t("app.caption"))
-    st.caption(i18n.t("app.fork_note"))
+    # First launch: a focused setup page, no tabs. Once every step is green the
+    # interface switches to its tabbed form with Processing up front.
+    if not is_configured():
+        st.caption(i18n.t("app.fork_note"))
+        render_first_run()
+        return
 
-    t_proc, t_conf, t_guide, t_results, t_hist = st.tabs(
+    t_proc, t_results, t_conf, t_hist, t_guide = st.tabs(
         [
             i18n.t("tab.process"),
-            i18n.t("tab.config"),
-            i18n.t("tab.guide"),
             i18n.t("tab.results"),
+            i18n.t("tab.config"),
             i18n.t("tab.history"),
+            i18n.t("tab.guide"),
         ]
     )
     with t_proc:
         tab_process()
-    with t_conf:
-        tab_config()
-    with t_guide:
-        tab_guide()
     with t_results:
         tab_results()
+    with t_conf:
+        tab_config()
     with t_hist:
         tab_history()
-
-    render_footer()
+    with t_guide:
+        tab_guide()
 
 
 if __name__ == "__main__":
