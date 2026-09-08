@@ -19,3 +19,7 @@ gatherUsageStats = false
 [server]
 headless = true
 fileWatcherType = "none"
+# Allow uploading single-file products (PRISMA .he5, MODIS .L1C) through the
+# browser. Big folder products (.SEN3 / .SAFE) should still be copied into
+# data/input directly — a multi-GB browser upload is impractical.
+maxUploadSize = 2048

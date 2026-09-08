@@ -366,12 +366,20 @@ def render_batch_summary() -> None:
     ok = sum(1 for r in rows if r.get("result") == "ok")
     st.subheader(i18n.t("batch.title"))
     st.write(i18n.t("batch.summary", ok=ok, fail=len(rows) - ok, n=len(rows)))
-    cols = ["input", "sensor", "result", "duration_s", "output"]
+    cols = ["input", "sensor", "result", "duration_s", "output", "error"]
     disp = [
-        {i18n.t(f"history.col.{c}"): (Path(str(r.get(c, ""))).name if c in ("input", "output") else r.get(c, "")) for c in cols}
+        {
+            i18n.t(f"history.col.{c}"): (
+                Path(str(r.get(c, ""))).name if c in ("input", "output") else r.get(c, "")
+            )
+            for c in cols
+        }
         for r in rows
     ]
     st.dataframe(disp, width="stretch", hide_index=True)
+    for r in rows:
+        if r.get("result") != "ok" and r.get("error"):
+            st.error(f"**{Path(str(r.get('input', ''))).name}** — {r['error']}")
 
     failed = job_runner.failed_cfgs(batch_id)
     c1, c2 = st.columns(2)
@@ -500,12 +508,36 @@ def tab_process() -> None:
             help=i18n.t("process.output_name_help"),
         )
 
+    # PRISMA needs the L1 *and* its L2C companion, plus meteo credentials.
+    prisma_block = False
+    prisma_selected = any(
+        sensor == "PRISMA" or Path(n).name.startswith("PRS_L1_STD_OFFL_")
+        for n in selected
+    )
+    for name in selected:
+        if sensor == "PRISMA" or Path(name).name.startswith("PRS_L1_STD_OFFL_"):
+            companion = status.missing_prisma_companion(INPUT_DIR / name)
+            if companion:
+                st.error(
+                    i18n.t(
+                        "process.prisma_needs_pair",
+                        product=Path(name).name,
+                        companion=companion,
+                    )
+                )
+                prisma_block = True
+    if prisma_selected and not cred.status()["earthdata"] and not cred.status()["cds"]:
+        st.error(i18n.t("process.prisma_needs_creds"))
+        prisma_block = True
+
     free = status.free_space_mb()
     if free < 2000:
         st.warning(i18n.t("process.low_disk", mb=free))
 
     if st.button(
-        i18n.t("process.run"), type="primary", disabled=not selected or free < 500
+        i18n.t("process.run"),
+        type="primary",
+        disabled=not selected or free < 500 or prisma_block,
     ):
         advanced = parse_advanced(advanced_text)
         cfgs = [
@@ -553,6 +585,11 @@ def _output_files() -> list[Path]:
     return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)
 
 
+@st.cache_data(show_spinner=False, max_entries=2)
+def _file_bytes(path: str, mtime: float, size: int) -> bytes:
+    return Path(path).read_bytes()
+
+
 def tab_results() -> None:
     files = _output_files()
     if not files:
@@ -564,18 +601,22 @@ def tab_results() -> None:
         files,
         format_func=lambda p: p.name,
     )
-    size_mb = pick.stat().st_size / 1e6
-    when = datetime.fromtimestamp(pick.stat().st_mtime).isoformat(timespec="seconds")
+    stat = pick.stat()
+    size_mb = stat.st_size / 1e6
+    when = datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds")
     st.caption(i18n.t("results.info", name=pick.name, size=size_mb, when=when))
 
-    if size_mb <= 400:
+    # Skip the (potentially large) read while a job is running — the Processing
+    # tab re-executes this whole page every 2 s during a job.
+    running = job_runner.state().get("running")
+    if size_mb <= 400 and not running:
         st.download_button(
             i18n.t("results.download"),
-            data=pick.read_bytes(),
+            data=_file_bytes(str(pick), stat.st_mtime, stat.st_size),
             file_name=pick.name,
             mime="application/x-netcdf" if pick.suffix == ".nc" else "application/octet-stream",
         )
-    else:
+    elif size_mb > 400:
         st.caption(i18n.t("results.too_big", size=size_mb))
 
     try:
@@ -605,7 +646,7 @@ def tab_history() -> None:
     if not rows:
         st.info(i18n.t("history.empty"))
         return
-    cols = ["when", "input", "sensor", "format", "duration_s", "result", "version"]
+    cols = ["when", "input", "sensor", "format", "duration_s", "result", "error", "version"]
     display = [
         {
             i18n.t(f"history.col.{c}"): (

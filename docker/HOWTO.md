@@ -93,21 +93,39 @@ leave the app open.
 ## Part 4 — First start
 
 1. Open the folder from Part 3, then open **`docker`**, then **`launchers`**.
-2. Double-click the file for your system:
+
+2. **macOS only — one-time unlock.** A launcher taken from a downloaded ZIP is
+   blocked by macOS (Gatekeeper) and is not marked runnable. Do this once:
+   1. Open **Terminal** (press ⌘ + Space, type `Terminal`, press Return).
+   2. In the Terminal window type `xattr -dr com.apple.quarantine ` (keep the
+      space at the end), then **drag the project folder** from Finder onto the
+      Terminal window and press **Return**.
+   3. Type `chmod +x ` (again, keep the trailing space), **drag**
+      `docker/launchers/Start-Polymer-macOS-Linux.command` from Finder onto the
+      Terminal window, and press **Return**.
+
+   (If you got the project with `git clone` instead of a ZIP, you can skip this —
+   git keeps the file runnable.)
+
+3. Double-click the file for your system:
    - **Windows** → **`Start-Polymer-Windows.bat`**
    - **macOS / Linux** → **`Start-Polymer-macOS-Linux.command`**
 
-   **macOS — first time only:** if you see *"cannot be opened because it is from
-   an unidentified developer"*, right-click the file → **Open** → **Open**.
+   **macOS — first time only:** if you still see *"cannot be opened because it is
+   from an unidentified developer"* (or *"Apple could not verify…"*):
+   right-click the file → **Open** → **Open**. If there is no **Open** button,
+   go to  **System Settings → Privacy & Security**, scroll to the bottom, click
+   **Open Anyway** next to the message about `Start-Polymer-macOS-Linux.command`,
+   then confirm with **Open**. After this the normal double-click works.
    **Windows — first time only:** if a blue *"Windows protected your PC"* box
    appears, click **More info → Run anyway**.
 
-3. A small window appears and shows text scrolling — this is just progress
+4. A small window appears and shows text scrolling — this is just progress
    information. **You do not type anything in it.** You can move it aside.
    **The first start takes 10–20 minutes**: it is downloading and preparing the
    program. This happens **only once**.
 
-4. When it is ready, your browser opens automatically at
+5. When it is ready, your browser opens automatically at
    **<http://localhost:8501>**.
    If it does not open, type that address into your browser yourself, or use the
    Docker Desktop method in Part 7.
@@ -141,7 +159,8 @@ check ✅.
 ### 5.4 (Optional) Weather-data account
 
 Polymer can fetch ozone / wind / pressure automatically if you have a free
-account. Without one, it still works using built-in data.
+account. Without one it still works for most sensors using built-in data — but
+**PRISMA will not run** without a NASA Earthdata or Copernicus CDS account.
 
 - **Setup** tab → **"Meteorological data source"** → choose **NASA Earthdata**
   or **Copernicus ERA5 / CDS**.
@@ -160,6 +179,13 @@ account. Without one, it still works using built-in data.
    Accepted: `.SEN3` folders (Sentinel-3 OLCI), `.SAFE` folders (Sentinel-2 MSI),
    `.he5` files (PRISMA), `.N1` files (MERIS), `.L1C` files
    (MODIS / VIIRS / SeaWiFS).
+
+   **PRISMA takes two files:** the Level-1 (`PRS_L1_STD_OFFL_….he5`) **and** its
+   Level-2C companion (`PRS_L2C_STD_….he5`, same name). Put **both** in
+   `data/input`; select only the L1 in the interface. PRISMA also **requires a
+   NASA Earthdata (or Copernicus CDS) account** for its weather data — add it in
+   the Setup tab first. The interface tells you if either is missing and does
+   not start.
 
    You can also use the **Upload a product** panel on the Processing tab: drop a
    `.zip` for folder products (`.SEN3` / `.SAFE`), or a single-file product.

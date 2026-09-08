@@ -1,172 +1,249 @@
 # CLAUDE.md — project context
 
-Context for Claude Code sessions on this repository. Read this first.
+Read this first. It is the handoff for continuing the project in a new session.
 
-## What this repository is
+## 1. What this repository is
 
 `frabolla/polymer-docker` is a **fork** of the open-source **Polymer** atmospheric
-correction algorithm by HYGEOS (upstream: <https://github.com/hygeos/polymer>).
+correction algorithm by HYGEOS (upstream remote `upstream` →
+<https://github.com/hygeos/polymer>).
 
 The fork adds **one thing**: a Docker container with a graphical web interface so
-that non-technical users can install and run Polymer without a Python/conda
-environment or the command line. **The Polymer algorithm code under `polymer/` is
-upstream and is not modified here** — only `docker/`, `CLAUDE.md`, `.gitignore`
-and the `README.md` were changed by this fork.
+non-technical users can run Polymer without a Python/conda environment or the
+command line. **`polymer/` is upstream and is NOT modified here** — the fork only
+touches `docker/`, `.github/workflows/`, `CLAUDE.md`, `README.md`, `.gitignore`,
+`VERSION`.
 
-## Licence constraint (important)
+Author of the packaging: **Francesco Tarini (@frabolla)** — credited in the UI
+(sidebar, Guide tab, licence page) and the README.
 
-`LICENCE.TXT` Section 2: Polymer may not be transferred/redistributed to third
-parties "in any form, modified or unmodified". Consequences:
+### Licence constraint (hard rule)
 
-- **Never publish a pre-built image** to any public registry (GHCR, Docker Hub…).
-  Only the *build recipe* is shipped; each user builds locally.
-- The CI workflow (`.github/workflows/docker-build.yml`) runs the tests, then
-  builds the image on native amd64 and arm64 runners to catch breakage — it
-  **must never push** the image. It has a `concurrency` group so a new push
-  cancels the previous run.
-- The app shows `LICENCE.TXT` and requires the user to accept it on first run.
+`LICENCE.TXT` §2: Polymer may not be transferred/redistributed to third parties
+"in any form". Therefore:
 
-## Layout of the added code (`docker/`)
+- **Never publish a pre-built image** to any registry (GHCR, Docker Hub…). Only
+  the build recipe is shipped; every user builds locally and accepts the terms
+  on first run (shown in the app).
+- CI builds the image to catch breakage but **must never push** it.
+
+## 2. Current status (as of v0.1.0, commit 4cf431f + uncommitted review fixes)
+
+**Released:** git tag `v0.1.0` + GitHub Release exist (points at `4cf431f`).
+`origin/master` and `origin/polymer-docker-container`… note: the remote branch
+`polymer-docker-container` was **deleted**; only `origin/master` remains. Local
+work continues on a local branch also named `polymer-docker-container` in the
+worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
+
+**Verified working:**
+- Image builds natively on amd64 and arm64; 30-test pytest suite passes.
+- Container starts, `/_stcore/health` OK, UI loads in EN and IT, language
+  persists, licence gate, all 5 tabs render, no runtime errors.
+- Credential files written `0600`, `/data/config` is `0700`.
+- `from polymer.main import run_atm_corr` imports cleanly.
+- **Real PRISMA data test** (`~/Downloads/polymer-docker-master/data/input/PRS_L1_STD_OFFL_20260704102046…he5` + its `PRS_L2C_STD_…` companion, ~2.4 GB total; also cloned into this worktree's `data/input/`):
+  `Level1_PRISMA` opens both files and initializes the product
+  (`shape (1000, 1000)`). It then needs NASA Earthdata credentials to download
+  meteo data — with a bad `.netrc` the run fails at that step with the humanised
+  message. **A full successful Polymer run has never been completed** (needs a
+  real NASA Earthdata account or Copernicus CDS key, which the user must supply
+  in the Setup tab).
+
+**NOT verified:**
+- A full atmospheric correction producing a Level-2 file.
+- The **Results tab** preview (`quicklook.list_2d_vars` / `make_png`) against a
+  real Level-2 — the dimension-name heuristic (`_SPATIAL_DIMS`) is a guess.
+- `credentials.test_earthdata` / `test_cds` against real valid accounts (only the
+  401/"bad" path was seen). They are best-effort and never block saving.
+- The Streamlit theme colours (light theme is applied; the teal primaryColor was
+  not pixel-checked).
+
+## 3. File map (`docker/`)
 
 ```
 docker/
-  Dockerfile                 micromamba env from environment.yml + Cython compile + Streamlit
-  docker-compose.yml         service "polymer", binds ../data/*, linux/amd64
-  Dockerfile.dockerignore    trimmed build context
-  entrypoint.sh              prepares /data, links credentials, runs `streamlit run`
+  Dockerfile                 multi-arch (TARGETARCH → env file), apt: git curl wget
+                             tini make build-essential; compiles Cython; pins
+                             streamlit>=1.40,<2; sets DIR_DATA/DIR_POLYMER_*/HOME
+  docker-compose.yml         service "polymer"; port 127.0.0.1:8501; binds
+                             ../data/{input,output,auxdata,ancillary,config};
+                             shm_size 2gb; healthcheck on /_stcore/health;
+                             build arg POLYMER_GUI_VERSION
+  environment.yml (repo root)  exact conda linux-64 lock (amd64) — UPSTREAM file
+  docker/environment.arm64.yml version-floor spec for aarch64, solved fresh;
+                             keep in sync with pyproject.toml [tool.pixi.deps]
+                             and environment.yml's pip: section. pyepr is pip
+                             (no conda-forge aarch64 build).
+  Dockerfile.dockerignore    trims the build context (excludes docker/tests/ etc.)
+  entrypoint.sh              mkdir /data/* incl. /data/ancillary/METEO; chmod
+                             0700 /data/config, 0600 the credential files;
+                             cd /app; exec `streamlit run`
   app/
-    streamlit_app.py         the whole UI (tabs: Processing / Setup / Guide / History)
-    i18n.py                  translation layer: t(), EN/IT string table, lang persisted
+    .streamlit/config.toml   light theme, toolbarMode=minimal, maxUploadSize=2048
+    streamlit_app.py         the whole UI. Tabs: Processing / Setup / Guide /
+                             Results / History
+    i18n.py                  t() + EN/IT string table (_STRINGS); language saved
+                             in /data/config/.polymer_lang
     params_schema.py         structural param data only (names/types/defaults)
-    polymer_job.py           subprocess wrapper around polymer.main.run_atm_corr (v4 API)
-    setup_status.py          checks: compiled modules? auxdata? credentials?
-    credentials.py           read/write ~/.netrc (NASA) and ~/.cdsapirc (CDS/ERA5)
-    quicklook.py             PNG preview of a Level-2 product
+    polymer_job.py           subprocess: builds Level1/Level2, calls
+                             polymer.main.run_atm_corr (v4 API). resolve_sensor(),
+                             _preflight(), _humanize_error(). Prints
+                             "[polymer_job] BLOCKS_TOTAL n"; writes
+                             <run_id>.result.json
+    job_runner.py            one detached job at a time + queue; state in
+                             /data/output/_run/; poll() heartbeat; cancel();
+                             _prune(); failed_cfgs(); configure() for tests
+    setup_status.py          verify_auxdata(), free_space_mb(),
+                             list_input_products() (hides PRS_L2C_STD_*, adds
+                             */GRANULE/*), prisma_l2c_name(),
+                             missing_prisma_companion(), app_version()
+    credentials.py           read/write ~/.netrc (NASA) and ~/.cdsapirc (CDS);
+                             test_earthdata()/test_cds() best-effort HTTP checks
+    uploads.py               st.file_uploader handler: .zip → safe-extract,
+                             single-file products saved as-is
+    quicklook.py             list_2d_vars(), make_png(path, out, var=None)
   launchers/
-    Start-Polymer-macOS-Linux.command / Start-Polymer-Windows.bat   double-click entry points
-  README_DOCKER.md / .it.md  reference docs (EN / IT)
-  HOWTO.md / .it.md          click-by-click guide for first-time Docker users (EN / IT)
-.github/workflows/docker-build.yml   CI: build only, never push
+    Start-Polymer-macOS-Linux.command / Start-Polymer-Windows.bat
+  README_DOCKER.md / .it.md   reference docs (EN/IT)
+  HOWTO.md / .it.md           click-by-click first-Docker-user guide (EN/IT)
+  tests/                      pytest suite (no Docker needed) — CI `test` job
+.github/workflows/docker-build.yml   test job → build on ubuntu-latest +
+                             ubuntu-24.04-arm (native, both arches, every push);
+                             concurrency group; NEVER pushes the image
+VERSION                     "0.1.0" — read by app_version() (COPYd to /app/VERSION)
 ```
 
-## Key technical decisions
+## 4. Key technical decisions & gotchas
 
-- **Base image**: `mambaorg/micromamba:1.5-jammy`, multi-arch. The Dockerfile
-  picks the conda env file by `TARGETARCH`: `environment.yml` (exact linux-64
-  lock) for amd64, `docker/environment.arm64.yml` (version floors only, solved
-  fresh) for arm64. Keep `environment.arm64.yml` in sync with
-  `pyproject.toml [tool.pixi.dependencies]` and the pip section of
-  `environment.yml`.
-- **Polymer API**: the v4 `run_atm_corr` (covers OLCI, MSI, MERIS, MODIS, VIIRS,
-  SeaWiFS, PRISMA, Landsat-8, HICO). v5 (`main_v5.run_polymer`) is OLCI/PACE/HYPSO
-  only, so not used.
-- **`DIR_DATA=/data` env var is required at build & runtime**: `polymer/params.py`
-  calls `core.env.getdir`, which *raises* if the fallback directory does not
-  exist. `DIR_DATA`, `DIR_POLYMER_AUXDATA`, `DIR_POLYMER_ANCILLARY` are all set in
-  the Dockerfile and the dirs are created before the first `import polymer`.
-- **Cython build**: `make` inside the env (`meson setup build && meson compile`).
-  Needs system `make` + `build-essential` (added via apt) plus `meson/ninja/cython`
-  (in the conda env).
-- **Auxiliary data (~1 GB incl. `LUT.hdf`) is NOT baked into the image** — it is
-  downloaded on first run into the `data/auxdata` volume via the Setup tab
-  (`python -m polymer.get_auxdata`).
-- **Streamlit chrome hidden**: `--client.toolbarMode=minimal` + CSS in
-  `streamlit_app.py` remove the "Deploy" button, the menu and the footer.
-- **Persistent state** lives only in the bind-mounted `data/` folder:
-  `data/config/.netrc`, `.cdsapirc`, `.polymer_licence_accepted`, `.polymer_lang`;
-  `data/auxdata`, `data/ancillary`; `data/output/_jobs.log` (history).
+- **Polymer API**: v4 `run_atm_corr(Level1(...), Level2(...))` — `Level2` is the
+  OUTPUT object. Covers OLCI, MSI, MERIS, MODIS, VIIRS, SeaWiFS, PRISMA,
+  Landsat-8, HICO. v5 (`main_v5.run_polymer`) is OLCI/PACE/HYPSO only → not used.
+- **`DIR_DATA=/data` is required at build & runtime**: `polymer/params.py` calls
+  `core.env.getdir`, which *raises* if a fallback dir is missing. `DIR_DATA`,
+  `DIR_POLYMER_AUXDATA`, `DIR_POLYMER_ANCILLARY`, `HOME` are all ENV in the
+  Dockerfile; the dirs are created (Dockerfile + entrypoint).
+- **Bind mounts shadow build-time dirs.** Anything the container needs under
+  `/data/*` at runtime must be created by `entrypoint.sh` (runs after mounts),
+  not just the Dockerfile. This is why `/data/ancillary/METEO` is in the
+  entrypoint.
+- **Auxiliary data (~1 GB, incl. `LUT.hdf` ≈ 97 MB) is NOT baked in** — the user
+  downloads it from the Setup tab (`python -m polymer.get_auxdata`) into
+  `data/auxdata/`. `verify_auxdata()` checks a manifest with minimum sizes.
+- **Cython build**: `make` inside the env needs system `make` + `build-essential`
+  (apt) plus `meson/ninja/cython` (conda).
+- **PRISMA needs THREE things** (`polymer/level1_prisma.py`):
+  1. the L1 `PRS_L1_STD_OFFL_*.he5` **and** its L2C companion `PRS_L2C_STD_*.he5`
+     in the same folder (the reader `assert`s the L2C exists);
+  2. `wget` (installed) + `/data/ancillary/METEO` (entrypoint) — the reader
+     *always* builds `Ancillary_NASA()` in `__init__`, ignoring `ancillary=None`;
+  3. a NASA Earthdata `.netrc` (or a CDS key) — the meteo download needs it,
+     there is no climatology fallback for PRISMA.
+  `polymer_job._preflight()` + the Processing tab check all three up-front
+  (explicit message, Run disabled). `resolve_sensor()` maps `PRS_L1_*` /
+  `PRS_L2C_*` → PRISMA even on "auto".
+- **Error messages**: `polymer_job._humanize_error(tb)` maps common failures
+  (NASA auth, `polymer/ancillary.py` in the traceback, "Unable to detect sensor",
+  missing `LUT.hdf`/auxdata, missing METEO dir, missing wget, MemoryError) to one
+  plain actionable sentence stored in `<run_id>.result.json` `error` and shown in
+  the batch summary + History (`error` column + per-row `st.error`). The full
+  traceback stays in `_run/<id>.log`.
+- **Streamlit chrome** hidden: `[client] toolbarMode="minimal"` in config.toml +
+  CSS in `streamlit_app.py`. Favicon `:material/water_drop:` (no emoji anywhere).
+- **`render_running`** polls with `time.sleep(2); st.rerun()` while a job runs —
+  the standard Streamlit pattern; it re-executes the whole page every 2 s.
+- **Persistent state** lives only in the bind-mounted `data/`:
+  `data/config/{.netrc,.cdsapirc,.polymer_licence_accepted,.polymer_lang}`,
+  `data/auxdata`, `data/ancillary`, `data/output/{_jobs.log,_run/}`.
 
-## Localization
+## 5. Localization rules
 
-- English is primary; Italian is selectable in the sidebar and persisted in
-  `data/config/.polymer_lang`.
-- **All user-facing strings go through `i18n.t("key")`** — never hard-code UI text
-  in `streamlit_app.py`. Add new keys to `_STRINGS` in `i18n.py` with **both**
-  `en` and `it`, and keep `{placeholder}` names identical between languages.
-- **Code comments and docstrings are in English.** No emoji in the UI (status uses
-  the typographic marks `✓` / `–`).
-- Doc files come in pairs: `*.md` (English) and `*.it.md` (Italian), cross-linked.
+- English is primary; Italian selectable in the sidebar.
+- **Every user-facing string goes through `i18n.t("key")`.** Add keys to
+  `_STRINGS` with BOTH `en` and `it`, identical `{placeholder}` names.
+  `docker/tests/test_i18n.py` enforces this + that `streamlit_app.py` only uses
+  defined keys.
+- **Code comments & docstrings in English.** No emoji in the UI (status uses `✓` /
+  `–`).
+- Doc files come in `*.md` / `*.it.md` pairs, cross-linked.
 
-## Build / run / test
+## 6. Build / run / test
 
 ```bash
-# build + run (from repo root)
-docker compose -f docker/docker-compose.yml up -d --build
-# UI: http://localhost:8501 (bound to 127.0.0.1)   health: /_stcore/health
-
-# stop
+# from repo root
+docker compose -f docker/docker-compose.yml up -d --build   # UI: http://localhost:8501
 docker compose -f docker/docker-compose.yml down
 
-# app unit tests (no Docker; also run in CI before the build)
+# app unit tests (also run in CI before the image build)
 pytest docker/tests -q
-# or inside the image:
 docker run --rm --entrypoint micromamba -v "$PWD:/src:ro" -w /src polymer-gui:local \
   run -n polymer python -m pytest docker/tests -q
 
-# quick import check inside the image
-docker run --rm polymer-gui:local micromamba run -n polymer \
+# run a job by hand inside the container (bypasses the UI)
+docker exec polymer-gui sh -lc 'cd /app && micromamba run -n polymer python polymer_job.py \
+  --config /tmp/job.json --run-id x --result /tmp/r.json'   # see polymer_job.py docstring for job.json
+
+# quick import check
+docker run --rm --entrypoint micromamba polymer-gui:local run -n polymer \
   python -c "import polymer.polymer_main, polymer.water; from polymer.main import run_atm_corr; print('ok')"
 ```
 
-- A real end-to-end run needs the ~1 GB auxdata download **and** a real Level-1
-  product in `data/input/` (Sentinel-3 `.SEN3`, Sentinel-2 `.SAFE`, PRISMA `.he5`,
-  …). Upstream tests expect the user to supply sample files via
-  `LEVEL1_SAMPLE_*` env vars — there is no bundled sample.
-- What has been verified so far: image builds, UI loads, licence gate, tabs,
-  language switch + persistence, credential files written `0600`,
-  `from polymer.main import run_atm_corr` imports cleanly. A full atmospheric
-  correction has **not** been run yet.
+Real end-to-end test needs the ~1 GB auxdata (Setup tab, or `cp` from
+`~/Downloads/polymer-docker-master/data/auxdata/`) **and** a real Level-1 product
+in `data/input/` **and**, for PRISMA, NASA Earthdata credentials.
 
-## Git / workflow conventions
+## 7. Known issues / open items (from the code review — none block v0.1.0)
 
-- Default branch: `master`. Work branch used for this feature:
-  `polymer-docker-container`.
-- **Ask the user before every `git commit`, PR, or `git push`.** Staging and
-  showing diffs is fine without asking.
-- `gh` CLI is authenticated as `frabolla` and wired as git's credential helper
-  (`gh auth setup-git`). Pushes from the shell work.
-- Upstream `hygeos/polymer` is remote `upstream`. Do **not** open PRs against it
-  (PRs #26/#27 there were closed on purpose).
-- `data/` is git-ignored.
+Priority order:
 
-## App modules (docker/app/)
+1. **No full end-to-end run has ever succeeded** — needs data + credentials.
+   Highest-value next step: the user adds their NASA Earthdata login, then run
+   the PRISMA pair and see whether Polymer produces a Level-2 `.nc`. Then verify
+   the Results tab preview against that file (may need to fix `_SPATIAL_DIMS` in
+   `quicklook.py` if the dims are named differently).
+2. **Browser upload of multi-GB products is impractical** — Streamlit holds the
+   whole file in memory; `maxUploadSize` is 2 GB. Copying into `data/input/` is
+   the real path (documented). Fine as-is; do not "fix" by raising the limit
+   further.
+3. `credentials.test_earthdata` / `test_cds` endpoints + auth scheme are
+   unverified with real valid accounts — a valid account might show "bad".
+   Best-effort, never blocks saving; revisit if users complain.
+4. `estimate_total_blocks` still opens non-PRISMA Level-1 products twice (once to
+   probe shape, once for the real run). PRISMA is now skipped. Minor I/O waste.
+5. PRISMA + `ancillary="none"` in the UI is effectively ignored (the reader
+   forces `Ancillary_NASA`). Could disable "none" for PRISMA or document it.
+6. Base image `mambaorg/micromamba:1.5-jammy` is pinned by minor tag, not digest.
+7. `environment.arm64.yml` is solved fresh each build — a transitive package
+   could shift under it. A real `conda-lock` aarch64 lock would pin it.
+8. auxdata download (Setup tab) is synchronous and uncancellable — a stalled
+   download freezes that Streamlit session.
+9. macOS bind-mount directory perms may not honour `chmod 700` on `data/config`
+   (the credential *files* get 0600, which is what matters).
+10. `_finalize` `duration_s` is wall-clock; for a job orphaned by a container
+    stop it can be huge (the row now carries a clear "did not finish" error).
 
-- `job_runner.py` — runs one Polymer job at a time as a detached subprocess,
-  extra jobs queue. State in `/data/output/_run/` (`current.json`, `queue.json`,
-  `<run_id>.log`, `<run_id>.result.json`). `poll()` is the idempotent heartbeat
-  (finalize finished job → append `_jobs.log` → start next). `cancel()` kills the
-  process group. The Processing tab polls with `time.sleep(2); st.rerun()` while a
-  job runs.
-- `polymer_job.py` — prints `[polymer_job] BLOCKS_TOTAL n` (best-effort: opens the
-  Level-1 once to read shape) so the UI shows a real progress bar from the
-  `Processing block:` lines Polymer emits; writes `<run_id>.result.json` on exit.
-- `uploads.py` — `st.file_uploader` handler: `.zip` → safe-extract into
-  `data/input`, single-file products saved as-is.
-- `quicklook.py` — `list_2d_vars()` + `make_png(path, out, var=None)` (auto RGB /
-  chlorophyll, or a chosen variable + histogram). Used by the Results tab.
-- `setup_status.verify_auxdata()` — checks required aux files exist and are not
-  truncated (min sizes); `auxdata_present()` uses it. `app_version()` reads
-  `POLYMER_GUI_VERSION` env, then `/app/VERSION`, then "dev". `free_space_mb()`
-  gates the Run / Download-auxdata buttons.
-- `job_runner` also: `configure(dir)` (tests repoint paths), `_prune()` (keep
-  `KEEP_RUNS` run file sets, cap `_jobs.log` at `JOBS_LOG_MAX_LINES`),
-  `failed_cfgs(batch_id)` (for the "re-run failed" button; batch item lists are
-  saved as `_run/batch_<id>.json`).
-- `credentials.test_earthdata()` / `test_cds()` — best-effort HTTP checks used by
-  the "Verify" buttons; return `("ok"|"bad"|"skip", detail)`, never block saving.
-- Theme + chrome: `docker/app/.streamlit/config.toml` (light theme, minimal
-  toolbar) is read because `entrypoint.sh` does `cd /app` before `streamlit run`.
-  Favicon is `:material/water_drop:` (no emoji).
-- Tests: `docker/tests/` (pytest, no Docker needed) — run in CI's `test` job
-  before the image builds. Keep them green; `test_i18n.py` enforces the
-  en/it + placeholder consistency that used to be a manual check.
+## 8. Git / workflow conventions
 
-## Known limitations / open items
+- Default branch `master`. **Ask the user before every `git commit`, PR, or
+  `git push`** (staging + showing diffs is fine without asking). The user pushes
+  and opens PRs themselves via GitHub Desktop unless they explicitly ask you to.
+- `gh` is authenticated as `frabolla` and wired as git's credential helper. When
+  asked to push, the pattern is: local branch → `git push origin HEAD:master`
+  (fast-forward). Then the user `git pull`s in the main checkout
+  `/Users/francesco/ClaudeCode/polymer-docker`.
+- Do NOT open PRs against `upstream` (hygeos/polymer) — PRs #26/#27 there were
+  closed on purpose.
+- `data/` is git-ignored (`.DS_Store` too).
+- This worktree: `.claude/worktrees/polymer-docker-container-2c853f`. Its `data/`
+  currently holds the real PRISMA test pair (CoW clones, ~0 disk) and a cloned
+  `data/auxdata` — kept for the next session's end-to-end test.
 
-- MODIS/VIIRS/SeaWiFS need Level-1C files prepared with NASA OBPG `l2gen`, not
-  included.
-- The HYGEOS git deps (`core`, `eoread`, `eotools`, `luts`) are pinned by commit
-  inside `environment.yml` **and** `docker/environment.arm64.yml`; update both.
-- No automated test of an actual processing run (needs data + credentials).
-- `environment.arm64.yml` is solved fresh each build — a package could shift
-  under it. Consider generating a real aarch64 lock later.
+## 9. First steps for a new session
+
+1. `docker compose -f docker/docker-compose.yml up -d --build`, open
+   http://localhost:8501, accept the licence.
+2. If continuing the PRISMA test: Setup tab → enter the user's real NASA
+   Earthdata username/password → Verify → Save. (You cannot enter credentials
+   yourself — ask the user to.)
+3. Processing tab → the PRISMA L1 is pre-listed → Run Polymer → watch for a
+   Level-2 in `data/output/` → check the Results tab preview.
+4. Any commit/push: ask first.

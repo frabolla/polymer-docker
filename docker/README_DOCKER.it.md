@@ -39,8 +39,22 @@ Installa, avvia **Docker Desktop** e aspetta che l'icona della balena sia stabil
 Apri la cartella `docker/launchers/` e fai **doppio clic** su:
 
 - **Windows** → `Start-Polymer-Windows.bat`
+  (la prima volta: sul riquadro *"Windows ha protetto il PC"*, **Ulteriori
+  informazioni → Esegui comunque**)
 - **macOS / Linux** → `Start-Polymer-macOS-Linux.command`
-  (su macOS la prima volta: tasto destro → **Apri** per superare il blocco Gatekeeper)
+
+**macOS, sblocco una tantum.** Un launcher preso da uno ZIP scaricato viene messo
+in quarantena da Gatekeeper e perde il flag di eseguibile. Nel **Terminale**
+esegui una volta (trascina i file per non digitare i percorsi):
+
+```bash
+xattr -dr com.apple.quarantine  <la cartella del progetto decompressa>
+chmod +x  <la cartella del progetto decompressa>/docker/launchers/Start-Polymer-macOS-Linux.command
+```
+
+Poi fai doppio clic. Se macOS lo blocca ancora, tasto destro → **Apri** →
+**Apri**, oppure **Impostazioni di Sistema → Privacy e sicurezza → Apri
+comunque**. (Con `git clone` invece dello ZIP non serve.)
 
 La **prima volta** la costruzione richiede **10–20 minuti** (scarica ~4 GB di
 librerie scientifiche e compila i moduli di calcolo). Le volte successive l'avvio è
@@ -60,7 +74,9 @@ Quando è pronto, il browser si apre da solo su **<http://localhost:8501>**.
 3. *(Facoltativo)* Scheda **Configurazione → Credenziali dati meteo**: inserisci
    l'utente/password di [NASA Earthdata](https://urs.earthdata.nasa.gov/users/new)
    oppure la [CDS API key](https://cds.climate.copernicus.eu/user/register).
-   Senza credenziali, Polymer usa comunque delle climatologie interne.
+   Senza credenziali, Polymer funziona per la maggior parte dei sensori usando
+   climatologie interne — **tranne PRISMA**, che richiede questo download e non
+   parte senza un account NASA Earthdata (o Copernicus CDS).
 
 ## 5. Elabora un prodotto
 
@@ -117,6 +133,10 @@ l'immagine senza perdere configurazione e download.
 
 - L'immagine si costruisce nativa per `linux/amd64` e `linux/arm64` (su Apple
   Silicon usa `docker/environment.arm64.yml` con versioni fissate, non il lock amd64).
+- **PRISMA richiede due file** (`PRS_L1_STD_OFFL_*.he5` **e** `PRS_L2C_STD_*.he5`,
+  stesso nome, entrambi in `data/input/`) **e** un account NASA Earthdata /
+  Copernicus CDS per i dati meteo. L'interfaccia controlla entrambi e non parte
+  altrimenti, indicando cosa manca.
 - MODIS/VIIRS/SeaWiFS richiedono file **Level-1C** già preparati con `l2gen` (NASA
   OBPG), non incluso qui.
 - L'interfaccia usa l'API v4 di Polymer (`run_atm_corr`), che copre tutti i sensori

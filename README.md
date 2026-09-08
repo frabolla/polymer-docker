@@ -31,9 +31,15 @@ command line.
    - Linux: <https://docs.docker.com/desktop/setup/install/linux/>
 2. Download this repository: green **Code → Download ZIP**, then unzip it.
 3. Open `docker/launchers/` and double-click the launcher for your system:
-   - **Windows** → `Start-Polymer-Windows.bat`
-   - **macOS / Linux** → `Start-Polymer-macOS-Linux.command`
-     (macOS first time: right-click → **Open**)
+   - **Windows** → `Start-Polymer-Windows.bat` (first time: *"Windows protected
+     your PC"* → **More info → Run anyway**)
+   - **macOS / Linux** → `Start-Polymer-macOS-Linux.command`. **macOS from a
+     ZIP** needs a one-time unlock in Terminal:
+     `xattr -dr com.apple.quarantine <folder>` then
+     `chmod +x <folder>/docker/launchers/Start-Polymer-macOS-Linux.command`; if
+     still blocked, right-click → **Open**, or **System Settings → Privacy &
+     Security → Open Anyway**. See [`docker/HOWTO.md`](docker/HOWTO.md) for the
+     click-by-click version. (`git clone` avoids this.)
 
    The first build takes **10–20 minutes** (it downloads ~4 GB of scientific
    libraries and compiles the modules). This happens only once.
@@ -108,6 +114,9 @@ docker compose -f docker/docker-compose.yml down          # stop
   version-pinned `docker/environment.arm64.yml`.
 - Supported sensors (via Polymer's v4 API): Sentinel-3 OLCI, Sentinel-2 MSI,
   ENVISAT MERIS, MODIS Aqua, VIIRS, SeaWiFS, PRISMA, Landsat-8 OLI, ISS HICO.
+- **PRISMA** needs the Level-1 (`PRS_L1_STD_OFFL_*.he5`) **and** its Level-2C
+  companion (`PRS_L2C_STD_*.he5`) together in `data/input/`; the interface checks
+  this before starting.
 - MODIS / VIIRS / SeaWiFS need **Level-1C** files prepared beforehand with NASA
   OBPG `l2gen` (not included here).
 

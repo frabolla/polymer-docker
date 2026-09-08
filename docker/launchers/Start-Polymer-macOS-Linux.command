@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Double-click to start Polymer with its graphical interface (macOS / Linux).
-# On macOS: if you see "unidentified developer", right-click > Open the first time.
+#
+# macOS, one-time unlock for a launcher taken from a downloaded ZIP (Gatekeeper
+# quarantines it and drops its +x flag). In Terminal, once:
+#   xattr -dr com.apple.quarantine  <project folder>
+#   chmod +x  <project folder>/docker/launchers/Start-Polymer-macOS-Linux.command
+# Then double-click. If still blocked: right-click > Open > Open, or
+# System Settings > Privacy & Security > Open Anyway. Not needed with `git clone`.
 
 set -e
 cd "$(dirname "$0")/.."          # -> docker/ folder

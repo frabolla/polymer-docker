@@ -95,22 +95,41 @@ finestra; lascia l'app aperta.
 ## Parte 4 — Primo avvio
 
 1. Apri la cartella della Parte 3, poi **`docker`**, poi **`launchers`**.
-2. Fai doppio clic sul file per il tuo sistema:
+
+2. **Solo macOS — sblocco una tantum.** Un launcher preso da uno ZIP scaricato
+   viene bloccato da macOS (Gatekeeper) e non è marcato come eseguibile. Fai
+   questo una volta sola:
+   1. Apri il **Terminale** (premi ⌘ + Spazio, scrivi `Terminale`, premi Invio).
+   2. Nella finestra del Terminale scrivi `xattr -dr com.apple.quarantine `
+      (lascia lo spazio finale), poi **trascina la cartella del progetto** dal
+      Finder sulla finestra del Terminale e premi **Invio**.
+   3. Scrivi `chmod +x ` (di nuovo, lascia lo spazio finale), **trascina**
+      `docker/launchers/Start-Polymer-macOS-Linux.command` dal Finder sulla
+      finestra del Terminale e premi **Invio**.
+
+   (Se hai ottenuto il progetto con `git clone` invece che da ZIP, puoi saltare
+   questo passo — git mantiene il file eseguibile.)
+
+3. Fai doppio clic sul file per il tuo sistema:
    - **Windows** → **`Start-Polymer-Windows.bat`**
    - **macOS / Linux** → **`Start-Polymer-macOS-Linux.command`**
 
-   **macOS — solo la prima volta:** se compare *"impossibile aprire perché
-   proviene da uno sviluppatore non identificato"*, tasto destro sul file →
-   **Apri** → **Apri**.
+   **macOS — solo la prima volta:** se compare ancora *"impossibile aprire perché
+   proviene da uno sviluppatore non identificato"* (o *"Apple non può
+   verificare…"*): tasto destro sul file → **Apri** → **Apri**. Se non c'è il
+   pulsante **Apri**, vai in **Impostazioni di Sistema → Privacy e sicurezza**,
+   scorri in fondo, clicca **Apri comunque** accanto al messaggio su
+   `Start-Polymer-macOS-Linux.command`, poi conferma con **Apri**. Dopo, il
+   doppio clic normale funziona.
    **Windows — solo la prima volta:** se compare il riquadro blu *"Windows ha
    protetto il PC"*, clicca **Ulteriori informazioni → Esegui comunque**.
 
-3. Compare una piccola finestra con del testo che scorre — sono solo informazioni
+4. Compare una piccola finestra con del testo che scorre — sono solo informazioni
    di avanzamento. **Non devi digitare nulla.** Puoi spostarla di lato.
    **Il primo avvio richiede 10–20 minuti**: sta scaricando e preparando il
    programma. Succede **solo una volta**.
 
-4. Quando è pronto, il browser si apre da solo su
+5. Quando è pronto, il browser si apre da solo su
    **<http://localhost:8501>**.
    Se non si apre, scrivi tu quell'indirizzo nel browser, oppure usa il metodo
    con Docker Desktop della Parte 7.
@@ -144,7 +163,8 @@ una spunta verde ✅.
 ### 5.4 (Facoltativo) Account per i dati meteo
 
 Polymer può scaricare da solo ozono / vento / pressione se hai un account
-gratuito. Senza, funziona comunque usando dati interni.
+gratuito. Senza, funziona comunque per la maggior parte dei sensori usando dati
+interni — ma **PRISMA non parte** senza un account NASA Earthdata o Copernicus CDS.
 
 - Scheda **Configurazione** → **"Fonte dei dati meteo"** → scegli **NASA
   Earthdata** oppure **Copernicus ERA5 / CDS**.
@@ -162,9 +182,18 @@ gratuito. Senza, funziona comunque usando dati interni.
 
    Accettati: cartelle `.SEN3` (Sentinel-3 OLCI), cartelle `.SAFE`
    (Sentinel-2 MSI), file `.he5` (PRISMA), file `.N1` (MERIS), file `.L1C`
-   (MODIS / VIIRS / SeaWiFS). In alternativa usa il pannello **Carica un
-   prodotto** nella scheda Elaborazione: trascina uno `.zip` per i prodotti a
-   cartella, o un prodotto a file singolo.
+   (MODIS / VIIRS / SeaWiFS).
+
+   **PRISMA richiede due file:** il Level-1 (`PRS_L1_STD_OFFL_….he5`) **e** il
+   suo file Level-2C (`PRS_L2C_STD_….he5`, stesso nome). Metti **entrambi** in
+   `data/input`; nell'interfaccia seleziona solo l'L1. PRISMA richiede **anche un
+   account NASA Earthdata (o Copernicus CDS)** per i dati meteo — inseriscilo
+   prima nella scheda Configurazione. Se manca qualcosa l'interfaccia te lo
+   segnala e non parte.
+
+   In alternativa usa il pannello **Carica un prodotto** nella scheda
+   Elaborazione: trascina uno `.zip` per i prodotti a cartella, o un prodotto a
+   file singolo.
 
 2. Torna al browser e **ricarica la pagina** (premi **F5**, o ⌘R su Mac).
 3. Clicca la scheda **Elaborazione**:

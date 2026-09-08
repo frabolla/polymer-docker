@@ -81,6 +81,8 @@ def list_input_products() -> list[str]:
     for p in sorted(INPUT_DIR.iterdir()):
         if p.name.startswith("."):
             continue
+        if p.name.startswith("PRS_L2C_STD_"):
+            continue  # PRISMA L2C is a companion of the L1, not a product to pick
         out.append(p.name)
         granule = p / "GRANULE"
         if granule.is_dir():
@@ -100,6 +102,29 @@ def free_space_mb(path: str | Path = "/data") -> float:
         return shutil.disk_usage(str(path)).free / (1024 * 1024)
     except Exception:
         return 0.0
+
+
+# PRISMA needs BOTH files: the L1 the user selects AND the matching L2C product
+# in the same folder (polymer/level1_prisma.py reads geometry from the L2C).
+_PRISMA_L1_PREFIX = "PRS_L1_STD_OFFL_"
+_PRISMA_L2C_PREFIX = "PRS_L2C_STD_"
+
+
+def prisma_l2c_name(l1_name: str) -> str | None:
+    """Expected PRISMA L2C companion file name for an L1 name (None if not a PRISMA L1)."""
+    base = Path(l1_name).name
+    if not base.startswith(_PRISMA_L1_PREFIX):
+        return None
+    return base.replace(_PRISMA_L1_PREFIX, _PRISMA_L2C_PREFIX, 1)
+
+
+def missing_prisma_companion(l1_path: str | Path) -> str | None:
+    """The L2C companion file name if PRISMA requires it and it is absent, else None."""
+    p = Path(l1_path)
+    comp = prisma_l2c_name(p.name)
+    if comp is None:
+        return None
+    return None if (p.parent / comp).exists() else comp
 
 
 def app_version() -> str:

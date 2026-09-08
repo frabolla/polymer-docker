@@ -426,6 +426,23 @@ _STRINGS: dict[str, dict[str, str]] = {
         "en": "Only {mb:.0f} MB free in `data/`. Free up space before running.",
         "it": "Solo {mb:.0f} MB liberi in `data/`. Libera spazio prima di elaborare.",
     },
+    "process.prisma_needs_pair": {
+        "en": "**{product}**: PRISMA needs *both* files — the L1 you selected **and** "
+              "its L2C companion `{companion}` in the same folder. Add "
+              "`{companion}` to `data/input/` and reload.",
+        "it": "**{product}**: PRISMA richiede *entrambi* i file — l'L1 selezionato "
+              "**e** il suo file L2C `{companion}` nella stessa cartella. Aggiungi "
+              "`{companion}` in `data/input/` e ricarica.",
+    },
+    "process.prisma_needs_creds": {
+        "en": "PRISMA also needs meteorological data (ozone / wind / pressure) that "
+              "Polymer downloads from NASA Earthdata. Add a **NASA Earthdata** "
+              "account (or a **Copernicus CDS** key) in the **Setup** tab first.",
+        "it": "PRISMA richiede anche dati meteo (ozono / vento / pressione) che "
+              "Polymer scarica da NASA Earthdata. Inserisci prima un account "
+              "**NASA Earthdata** (o una chiave **Copernicus CDS**) nella scheda "
+              "**Configurazione**.",
+    },
     "process.ancillary": {"en": "Auxiliary meteorological data", "it": "Dati meteo ausiliari"},
     "process.common_params": {"en": "**Common parameters**", "it": "**Parametri comuni**"},
     "process.water_model": {"en": "Water model", "it": "Modello dell'acqua"},

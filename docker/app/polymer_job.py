@@ -37,11 +37,23 @@ import traceback
 from pathlib import Path
 
 
+def resolve_sensor(cfg: dict) -> str:
+    """Sensor to use: the explicit choice, or a name-based guess for 'auto'."""
+    sensor = (cfg.get("sensor") or "auto").lower()
+    if sensor in ("", "auto"):
+        name = Path(cfg["input"]).name
+        if name.startswith("PRS_L1_STD_OFFL_"):
+            return "prisma"
+        if name.startswith(("PRS_L2C", "PRS_L2D")):
+            return "prisma"
+    return sensor
+
+
 def build_level1(cfg: dict):
     from polymer.level1 import Level1
 
     src = cfg["input"]
-    sensor = (cfg.get("sensor") or "auto").lower()
+    sensor = resolve_sensor(cfg)
     l1_kwargs = dict(cfg.get("l1_kwargs") or {})
 
     anc = build_ancillary(cfg.get("ancillary", "auto"))
@@ -113,6 +125,10 @@ def build_level2(cfg: dict):
 
 def estimate_total_blocks(cfg: dict) -> int | None:
     """Best-effort: open the Level-1 once to read its shape and block size."""
+    # PRISMA's reader downloads ancillary data in __init__ and has no context
+    # manager, so probing it would do that expensive work twice. Skip it.
+    if resolve_sensor(cfg) == "prisma":
+        return None
     try:
         with build_level1(cfg) as probe:
             bs = getattr(probe, "blocksize", 100)
@@ -142,6 +158,93 @@ def _write_result(path: str, run_id: str, rc: int, output: str | None, error: st
         pass
 
 
+def _has_meteo_credentials() -> bool:
+    home = Path(os.environ.get("HOME", "/data/config"))
+    netrc = home / ".netrc"
+    if netrc.exists() and "urs.earthdata.nasa.gov" in netrc.read_text():
+        return True
+    return (home / ".cdsapirc").exists()
+
+
+def _preflight(cfg: dict) -> str | None:
+    """Cheap input checks before doing any real work. Returns an error string or None."""
+    src = Path(cfg["input"])
+    if not src.exists():
+        return f"Input file not found: {src.name} (in data/input/)."
+
+    sensor = resolve_sensor(cfg)
+
+    if sensor == "prisma":
+        if src.name.startswith("PRS_L1_STD_OFFL_"):
+            companion = src.with_name(
+                src.name.replace("PRS_L1_STD_OFFL_", "PRS_L2C_STD_", 1)
+            )
+            if not companion.exists():
+                return (
+                    "PRISMA needs both files: the L1 and its L2C companion "
+                    f"'{companion.name}' in the same folder (this one is missing)."
+                )
+        if not _has_meteo_credentials():
+            return (
+                "PRISMA needs meteorological data (ozone / wind / pressure) that "
+                "Polymer downloads from NASA Earthdata. Add a NASA Earthdata "
+                "account (or a Copernicus CDS key) in the Setup tab, then run again."
+            )
+    return None
+
+
+_ERROR_HINTS = [
+    (
+        ("authenticating to NASA EarthData", "urs.earthdata", "401 Unauthorized",
+         "Username/Password Authentication Failed"),
+        "The NASA Earthdata login failed or is missing. Open the Setup tab and "
+        "enter (or correct) your Earthdata username and password, then run again.",
+    ),
+    (
+        # downstream symptom when the meteo/ozone download failed
+        ("polymer/ancillary.py", "polymer/ancillary_era5.py"),
+        "The meteorological data (ozone / wind / pressure) could not be "
+        "downloaded. Check your NASA Earthdata account (or Copernicus CDS key) "
+        "in the Setup tab — it is missing, wrong, or the service is unreachable.",
+    ),
+    (
+        ("Unable to detect sensor",),
+        "Polymer could not tell which sensor this file is from. Pick the sensor "
+        "explicitly in the Processing tab instead of leaving it on 'auto'.",
+    ),
+    (
+        ("LUT.hdf", "No such file or directory: '/data/auxdata", "get_auxdata"),
+        "The auxiliary data is missing or incomplete. Use 'Download / update "
+        "auxiliary data' on the Setup tab, then run again.",
+    ),
+    (
+        ("/data/ancillary", "METEO does not exist"),
+        "The ancillary-data folder is missing inside the container. Rebuild the "
+        "image (docker compose build) so the latest fix is applied.",
+    ),
+    (
+        ("wget: not found", "wget: command not found"),
+        "'wget' is missing from the image. Rebuild it (docker compose build) so "
+        "the latest fix is applied.",
+    ),
+    (
+        ("MemoryError", "Cannot allocate memory", "Killed"),
+        "The container ran out of memory. In Docker Desktop → Settings → "
+        "Resources, raise the memory limit (8 GB or more), then run again.",
+    ),
+]
+
+
+def _humanize_error(text: str) -> str:
+    """Turn a raw traceback / message into one plain-language sentence for the user."""
+    low = text
+    for needles, message in _ERROR_HINTS:
+        if any(n in low for n in needles):
+            return message
+    last = text.strip().splitlines()[-1] if text.strip() else "unknown error"
+    return f"Processing failed: {last}"
+
+
 def run(args) -> int:
     cfg = json.loads(Path(args.config).read_text())
 
@@ -149,20 +252,39 @@ def run(args) -> int:
     mp = int(pk.get("multiprocessing", 0) or 0)
     os.environ.setdefault("OMP_NUM_THREADS", "1" if mp != 0 else str(os.cpu_count() or 1))
 
+    resolved = resolve_sensor(cfg)
     print(f"[polymer_job] run-id  = {args.run_id or '-'}", flush=True)
     print(f"[polymer_job] input   = {cfg['input']}", flush=True)
-    print(f"[polymer_job] sensor  = {cfg.get('sensor', 'auto')}", flush=True)
+    print(
+        f"[polymer_job] sensor  = {cfg.get('sensor', 'auto')}"
+        + (f" -> {resolved}" if resolved != (cfg.get('sensor') or 'auto').lower() else ""),
+        flush=True,
+    )
     print(f"[polymer_job] output  = {cfg.get('output_dir')}  ({cfg.get('fmt')})", flush=True)
     print(f"[polymer_job] kwargs  = {pk}", flush=True)
+
+    err = _preflight(cfg)
+    if err:
+        print(f"[polymer_job] ERROR: {err}", flush=True)
+        _write_result(args.result, args.run_id, 1, None, err)
+        return 1
 
     total = estimate_total_blocks(cfg)
     print(f"[polymer_job] BLOCKS_TOTAL {total if total else 'unknown'}", flush=True)
 
     from polymer.main import run_atm_corr
 
-    l1 = build_level1(cfg)
-    l2 = build_level2(cfg)
-    result = run_atm_corr(l1, l2, **pk)
+    try:
+        l1 = build_level1(cfg)
+        l2 = build_level2(cfg)
+        result = run_atm_corr(l1, l2, **pk)
+    except Exception:
+        tb = traceback.format_exc()
+        traceback.print_exc()  # full detail stays in the job log
+        friendly = _humanize_error(tb)
+        print(f"[polymer_job] ERROR: {friendly}", flush=True)
+        _write_result(args.result, args.run_id, 1, None, friendly)
+        return 1
 
     out = getattr(result, "filename", None) or cfg.get("output_dir")
     print(f"[polymer_job] COMPLETED -> {out}", flush=True)
@@ -183,6 +305,5 @@ if __name__ == "__main__":
     except Exception:
         tb = traceback.format_exc()
         traceback.print_exc()
-        last = tb.strip().splitlines()[-1] if tb.strip() else "error"
-        _write_result(_a.result, _a.run_id, 1, None, last)
+        _write_result(_a.result, _a.run_id, 1, None, _humanize_error(tb))
         sys.exit(1)

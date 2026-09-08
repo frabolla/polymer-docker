@@ -4,8 +4,9 @@
 set -euo pipefail
 
 echo "==> Preparing data folders in /data ..."
-mkdir -p /data/input /data/output /data/auxdata/static /data/ancillary /data/config
-chmod 700 /data/config || true
+mkdir -p /data/input /data/output /data/auxdata/static /data/config \
+         /data/ancillary /data/ancillary/METEO || true
+chmod 700 /data/config 2>/dev/null || true
 
 # Credentials (.netrc for NASA Earthdata, .cdsapirc for Copernicus CDS) are saved
 # by the interface into /data/config and must be visible from $HOME.

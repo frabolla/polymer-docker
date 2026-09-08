@@ -20,7 +20,7 @@ def _safe_extract(zf: zipfile.ZipFile, dest: Path) -> None:
     dest = dest.resolve()
     for member in zf.namelist():
         target = (dest / member).resolve()
-        if not str(target).startswith(str(dest)):
+        if target != dest and not target.is_relative_to(dest):
             raise ValueError(f"unsafe path in zip: {member}")
     zf.extractall(dest)
 

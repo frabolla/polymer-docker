@@ -217,8 +217,15 @@ def _start(item: dict) -> None:
 def _finalize(cur: dict) -> None:
     res = _read_json(Path(cur["result"]), {})
     rc = res.get("rc")
+    err = res.get("error") or ""
     if rc is None:
-        rc = 1  # process vanished without writing a result
+        # the process ended without writing a result (container stopped, OOM kill…)
+        rc = 1
+        err = err or (
+            "The job did not finish — the container was stopped, or it was killed "
+            "(often out of memory: raise the memory limit in Docker Desktop → "
+            "Settings → Resources)."
+        )
     row = {
         "when": cur.get("started", datetime.now().isoformat(timespec="seconds")),
         "input": cur["cfg"].get("input", ""),
@@ -227,7 +234,7 @@ def _finalize(cur: dict) -> None:
         "duration_s": round(time.time() - cur.get("started_ts", time.time()), 1),
         "result": "ok" if rc == 0 else f"error ({rc})",
         "output": res.get("output") or "",
-        "error": res.get("error") or "",
+        "error": err,
         "run_id": cur["run_id"],
         "batch_id": cur.get("batch_id", ""),
         "version": cur.get("version", ""),

@@ -168,3 +168,6 @@ cython_debug/
 
 # Docker packaging: user data (input products, results, downloaded auxdata, credentials)
 /data/
+
+# macOS Finder
+.DS_Store

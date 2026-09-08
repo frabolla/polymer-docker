@@ -23,8 +23,9 @@ ARG POLYMER_GUI_VERSION=dev
 # --- system packages (git is needed for the pip dependencies hosted on GitHub) ---
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git ca-certificates curl tini make build-essential \
+        git ca-certificates curl wget tini make build-essential \
     && rm -rf /var/lib/apt/lists/*
+# wget is used by polymer.ancillary.Ancillary_NASA to fetch meteo/ozone data.
 
 # --- "polymer" conda environment ---
 COPY environment.yml                 /tmp/environment.amd64.yml
@@ -36,7 +37,7 @@ RUN set -eux; \
     esac; \
     echo "Using $ENVFILE for TARGETARCH=${TARGETARCH:-amd64}"; \
     micromamba create -y -n polymer -f "$ENVFILE"; \
-    micromamba run -n polymer pip install --no-cache-dir "streamlit>=1.36"; \
+    micromamba run -n polymer pip install --no-cache-dir "streamlit>=1.40,<2"; \
     micromamba clean -y --all
 
 ENV MAMBA_DEFAULT_ENV=polymer \
@@ -56,7 +57,8 @@ ENV DIR_DATA=/data \
     DIR_POLYMER_ANCILLARY=/data/ancillary \
     HOME=/data/config \
     OMP_NUM_THREADS=1
-RUN mkdir -p /data/input /data/output /data/auxdata/static /data/ancillary /data/config
+RUN mkdir -p /data/input /data/output /data/auxdata/static /data/config \
+             /data/ancillary /data/ancillary/METEO
 
 # --- Polymer source + Cython module compilation ---
 WORKDIR /opt/polymer

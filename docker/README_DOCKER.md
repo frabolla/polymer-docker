@@ -39,8 +39,21 @@ Install it, start **Docker Desktop** and wait until the whale icon is steady
 Open the `docker/launchers/` folder and **double-click**:
 
 - **Windows** → `Start-Polymer-Windows.bat`
+  (first time: on the *"Windows protected your PC"* box, **More info → Run anyway**)
 - **macOS / Linux** → `Start-Polymer-macOS-Linux.command`
-  (on macOS the first time: right-click → **Open** to get past Gatekeeper)
+
+**macOS, one-time unlock.** A launcher from a downloaded ZIP is quarantined by
+Gatekeeper and loses its runnable flag. In **Terminal**, run once (drag the files
+in so you don't type paths):
+
+```bash
+xattr -dr com.apple.quarantine  <the unzipped project folder>
+chmod +x  <the unzipped project folder>/docker/launchers/Start-Polymer-macOS-Linux.command
+```
+
+Then double-click it. If macOS still blocks it, right-click → **Open** → **Open**,
+or **System Settings → Privacy & Security → Open Anyway**. (With `git clone`
+instead of a ZIP this is not needed.)
 
 The **first run** takes **10–20 minutes** (it downloads ~4 GB of scientific
 libraries and compiles the compute modules). Later starts are almost instant.
@@ -59,7 +72,9 @@ When it is ready, the browser opens by itself at **<http://localhost:8501>**.
 3. *(Optional)* **Setup → Meteorological data credentials**: enter your
    [NASA Earthdata](https://urs.earthdata.nasa.gov/users/new) username/password
    or your [CDS API key](https://cds.climate.copernicus.eu/user/register).
-   Without credentials, Polymer still works using built-in climatologies.
+   Without credentials, Polymer still works for most sensors using built-in
+   climatologies — **except PRISMA**, which requires this download and will not
+   run without a NASA Earthdata (or Copernicus CDS) account.
 
 ## 5. Process a product
 
@@ -114,6 +129,10 @@ without losing your setup and downloads.
 
 - The image builds natively for `linux/amd64` and `linux/arm64` (Apple Silicon
   uses a version-pinned `docker/environment.arm64.yml` instead of the amd64 lock).
+- **PRISMA needs two files** (`PRS_L1_STD_OFFL_*.he5` **and** `PRS_L2C_STD_*.he5`,
+  same name, both in `data/input/`) **and** a NASA Earthdata / Copernicus CDS
+  account for the meteo data. The interface checks both and refuses to start
+  otherwise, with a message telling you what is missing.
 - MODIS/VIIRS/SeaWiFS need **Level-1C** files prepared beforehand with `l2gen`
   (NASA OBPG), which is not included here.
 - The interface uses Polymer's v4 API (`run_atm_corr`), which covers every sensor

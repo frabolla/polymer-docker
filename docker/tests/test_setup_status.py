@@ -44,11 +44,15 @@ def test_list_input_products_includes_granules(tmp_path, monkeypatch):
     (tmp_path / "scene.nc").write_text("x")
     (tmp_path / "S2A.SAFE" / "GRANULE" / "L1C_T31").mkdir(parents=True)
     (tmp_path / ".hidden").write_text("x")
+    (tmp_path / "PRS_L1_STD_OFFL_x.he5").write_text("x")
+    (tmp_path / "PRS_L2C_STD_x.he5").write_text("x")
     out = status.list_input_products()
     assert "S3A_OL_1.SEN3" in out
     assert "scene.nc" in out
     assert "S2A.SAFE/GRANULE/L1C_T31" in out
     assert ".hidden" not in out
+    assert "PRS_L1_STD_OFFL_x.he5" in out
+    assert "PRS_L2C_STD_x.he5" not in out  # companion, hidden from the list
 
 
 def test_app_version_from_file(tmp_path, monkeypatch):
@@ -56,3 +60,20 @@ def test_app_version_from_file(tmp_path, monkeypatch):
     monkeypatch.setattr(status, "__file__", str(tmp_path / "setup_status.py"))
     (tmp_path / "VERSION").write_text("1.2.3\n")
     assert status.app_version() == "1.2.3"
+
+
+def test_prisma_companion_detection(tmp_path):
+    l1 = "PRS_L1_STD_OFFL_20210721102700_20210721102705_0001.he5"
+    l2c = "PRS_L2C_STD_20210721102700_20210721102705_0001.he5"
+
+    assert status.prisma_l2c_name(l1) == l2c
+    assert status.prisma_l2c_name("S3A_OL_1_EFR.SEN3") is None
+
+    (tmp_path / l1).write_bytes(b"x")
+    assert status.missing_prisma_companion(tmp_path / l1) == l2c  # L2C absent
+
+    (tmp_path / l2c).write_bytes(b"x")
+    assert status.missing_prisma_companion(tmp_path / l1) is None  # both present
+
+    (tmp_path / "scene.nc").write_bytes(b"x")
+    assert status.missing_prisma_companion(tmp_path / "scene.nc") is None
