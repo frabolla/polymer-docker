@@ -36,7 +36,7 @@ work continues on a local branch also named `polymer-docker-container` in the
 worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
 
 **Verified working:**
-- Image builds natively on amd64 and arm64 (multi-stage); 59-test pytest suite
+- Image builds natively on amd64 and arm64 (multi-stage); 60-test pytest suite
   passes (`test_quicklook.py` is skipped where xarray/netCDF4 are absent, e.g.
   the lean CI `test` job; it runs in the image).
 - Container starts, `/_stcore/health` OK, UI loads in EN and IT, language
@@ -126,21 +126,24 @@ docker/
                              = ["NASA","ERA5","none"] — no "auto" (the meteo
                              source is an explicit per-run choice; the UI
                              selectbox has index=None). LANDMASK_MODES =
-                             ["default","none","gsw"].
+                             ["mask","process","gsw"]; BITMASK_INVALID_PROCESS_LAND
+                             = 2+4+32+512 (Polymer's 551 default minus LAND).
     polymer_job.py           subprocess: builds Level1/Level2, calls
                              polymer.main.run_atm_corr (v4 API). resolve_sensor(),
-                             _auto_ancillary_kind() (kept for old cfgs; .netrc->
-                             nasa, .cdsapirc->era5, else none — never assumes
-                             NASA), _resolve_landmask() (cfg["landmask"]: default
-                             -> _KEEP the reader default; none -> None; gsw ->
-                             GSW(directory=/data/auxdata/gsw); only wired for
-                             _LANDMASK_SENSORS = olci/msi/meris/prisma/hico/
-                             landsat8), _preflight() (also the GSW-dataset check),
-                             _humanize_error(). NOTE: landmask is a Level1
-                             constructor kwarg, NOT a run_atm_corr kwarg — so a
-                             `landmask=...` typed in Advanced params is silently
-                             ignored by Polymer. Prints "[polymer_job]
-                             BLOCKS_TOTAL n"; writes <run_id>.result.json
+                             _auto_ancillary_kind() (kept for old cfgs; never
+                             assumes NASA). Land handling (cfg["landmask"]):
+                             _resolve_landmask() -> Level1 landmask kwarg (mask ->
+                             _KEEP; process -> None; gsw -> GSW(directory=
+                             /data/auxdata/gsw)) for _LANDMASK_SENSORS = olci/msi/
+                             meris/prisma/hico/landsat8; apply_land_mode() adds
+                             pk["BITMASK_INVALID"]=550 for "process" (PRISMA reads
+                             LAND from its own LandCover_Mask, so dropping the
+                             geographic mask alone is not enough — Polymer skips
+                             any pixel where bitmask & BITMASK_INVALID). _KEEP
+                             sentinel; _preflight() also checks the GSW dataset.
+                             NOTE: landmask is a Level1 constructor kwarg, NOT a
+                             run_atm_corr kwarg — `landmask=...` in Advanced
+                             params is silently ignored by Polymer.
     job_runner.py            one detached job at a time + queue; state in
                              /data/output/_run/; poll() heartbeat; cancel();
                              _prune(); failed_cfgs(); configure() for tests

@@ -57,18 +57,36 @@ GSW_DIR = Path(os.environ.get("DIR_DATA", "/data")) / "auxdata" / "gsw"
 _KEEP = object()  # sentinel: leave the reader's own landmask default alone
 
 
+def _land_mode(cfg: dict) -> str:
+    m = (cfg.get("landmask") or "mask").lower()
+    return {"default": "mask", "none": "process", "no": "process", "off": "process"}.get(m, m)
+
+
 def _resolve_landmask(cfg: dict):
-    """Turn the UI's landmask choice into what a Level1 reader expects."""
-    mode = (cfg.get("landmask") or "default").lower()
-    if mode in ("", "default"):
+    """Turn the UI's land-handling choice into what a Level1 reader expects."""
+    mode = _land_mode(cfg)
+    if mode == "mask":
         return _KEEP
-    if mode in ("none", "no", "off"):
-        return None
+    if mode == "process":
+        return None  # drop any geographic land mask
     if mode == "gsw":
         from polymer.gsw import GSW
 
         return GSW(directory=str(GSW_DIR))
     return _KEEP
+
+
+def apply_land_mode(cfg: dict, pk: dict) -> None:
+    """
+    'process' land handling also needs BITMASK_INVALID without the LAND bit, or
+    Polymer still skips land pixels flagged by the reader (PRISMA reads them from
+    the product's own LandCover_Mask regardless of the geographic mask). A value
+    the user typed in Advanced parameters wins.
+    """
+    if _land_mode(cfg) == "process":
+        from params_schema import BITMASK_INVALID_PROCESS_LAND
+
+        pk.setdefault("BITMASK_INVALID", BITMASK_INVALID_PROCESS_LAND)
 
 
 def build_level1(cfg: dict):
@@ -320,6 +338,7 @@ def run(args) -> int:
     cfg = json.loads(Path(args.config).read_text())
 
     pk = dict(cfg.get("polymer_kwargs") or {})
+    apply_land_mode(cfg, pk)
     mp = int(pk.get("multiprocessing", 0) or 0)
     os.environ.setdefault("OMP_NUM_THREADS", "1" if mp != 0 else str(os.cpu_count() or 1))
 

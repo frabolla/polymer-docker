@@ -85,8 +85,6 @@ st.markdown(
       footer {visibility: hidden !important;}
       .polymer-head {display:flex; align-items:center; gap:.6rem; margin-bottom:.1rem;}
       .polymer-head h1 {margin:0; font-size:2.1rem;}
-      .sidebar-foot {margin-top:1.4rem; padding-top:.7rem; border-top:1px solid #d9e2e6;
-                     color:#8a8a8a; font-size:.72rem; line-height:1.35;}
       /* make the first tab (Processing) read as the primary one */
       .stTabs [data-baseweb="tab-list"] button:first-child p {font-weight:700;}
     </style>
@@ -178,12 +176,12 @@ def render_sidebar() -> None:
     st.sidebar.caption(i18n.t("sidebar.freespace", mb=status.free_space_mb()))
     st.sidebar.caption(i18n.t("sidebar.version", v=status.app_version()))
 
-    # Project / attribution footer, at the bottom of the sidebar.
-    st.sidebar.markdown(
-        f"<div class='sidebar-foot'>{i18n.t('app.fork_note')}<br>{i18n.t('app.author')}"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    # Project / attribution footer, at the bottom of the sidebar. Plain captions
+    # so the markdown (bold, links) renders — wrapping them in a raw HTML <div>
+    # would show the `**` / `[]()` literally.
+    st.sidebar.divider()
+    st.sidebar.caption(i18n.t("app.fork_note"))
+    st.sidebar.caption(i18n.t("app.author"))
 
 
 def render_header() -> None:
@@ -682,8 +680,8 @@ def tab_process() -> None:
             index=0,
             help=i18n.t("process.landmask_help"),
         )
-        if landmask == "default" and sensor in ("MSI", "PRISMA", "HICO", "LANDSAT8"):
-            st.caption(i18n.t("process.landmask_none_builtin", sensor=sensor))
+        if landmask == "process":
+            st.caption(i18n.t("process.landmask_process_note"))
 
     st.markdown(i18n.t("process.common_params"))
     common_vals: dict = {}

@@ -628,24 +628,26 @@ _STRINGS: dict[str, dict[str, str]] = {
         "en": "No meteo account configured yet — add one on the Setup tab.",
         "it": "Nessun account meteo configurato — aggiungine uno nella scheda Configurazione.",
     },
-    "process.landmask": {"en": "Land mask", "it": "Maschera di terra"},
+    "process.landmask": {"en": "Land handling", "it": "Gestione della terra"},
     "process.landmask_help": {
-        "en": "Whether land pixels are masked out. 'Built-in' uses the mask "
-              "supplied with the product (OLCI/MERIS only). 'None' processes land "
-              "too. 'GSW' uses the Global Surface Water dataset (must be present).",
-        "it": "Se mascherare i pixel di terra. 'Integrata' usa la maschera fornita "
-              "col prodotto (solo OLCI/MERIS). 'Nessuna' elabora anche la terra. "
-              "'GSW' usa il dataset Global Surface Water (deve essere presente).",
+        "en": "By default Polymer flags land pixels and does not correct them. "
+              "'Correct land pixels too' processes every pixel (clouds and invalid "
+              "data are still skipped). 'GSW' uses the Global Surface Water "
+              "dataset as the mask (it must be present in data/auxdata/gsw).",
+        "it": "Di default Polymer segna i pixel di terra e non li corregge. "
+              "'Correggi anche i pixel di terra' elabora ogni pixel (nuvole e dati "
+              "non validi restano esclusi). 'GSW' usa il dataset Global Surface "
+              "Water come maschera (deve essere in data/auxdata/gsw).",
     },
-    "process.landmask_none_builtin": {
-        "en": "{sensor} products carry no built-in land mask — this is the same "
-              "as 'None'. Use 'GSW' to actually mask land.",
-        "it": "I prodotti {sensor} non hanno una maschera di terra integrata — "
-              "equivale a 'Nessuna'. Usa 'GSW' per mascherare davvero la terra.",
+    "process.landmask_process_note": {
+        "en": "Every pixel is corrected, land included. Cloud and invalid pixels "
+              "are still left out.",
+        "it": "Ogni pixel viene corretto, terra inclusa. Nuvole e pixel non "
+              "validi restano comunque esclusi.",
     },
-    "landmask.default": {"en": "Product's built-in mask", "it": "Maschera integrata del prodotto"},
-    "landmask.none": {"en": "None — process land too", "it": "Nessuna — elabora anche la terra"},
-    "landmask.gsw": {"en": "Global Surface Water dataset", "it": "Dataset Global Surface Water"},
+    "landmask.mask": {"en": "Mask land out (default)", "it": "Escludi la terra (predefinito)"},
+    "landmask.process": {"en": "Correct land pixels too", "it": "Correggi anche i pixel di terra"},
+    "landmask.gsw": {"en": "Use the GSW land mask", "it": "Usa la maschera GSW"},
     "fmt.hdf4": {"en": "HDF (.hdf) — recommended", "it": "HDF (.hdf) — consigliato"},
     "fmt.netcdf4": {"en": "NetCDF (.nc)", "it": "NetCDF (.nc)"},
     "process.no_products": {

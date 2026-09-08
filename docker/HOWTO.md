@@ -208,9 +208,10 @@ account. Without one it still works for most sensors using built-in data — but
      **NASA Earthdata**, **Copernicus ERA5**, or **None** (built-in
      climatologies; not allowed for PRISMA). Nothing is pre-selected — choose
      it every run.
-   - **Land mask** — **Product's built-in mask** (default; OLCI/MERIS only),
-     **None** (process land pixels too), or **GSW** (needs the Global Surface
-     Water dataset in `data/auxdata/gsw`).
+   - **Land handling** — **Mask land out** (default: land pixels are not
+     corrected), **Correct land pixels too** (every pixel is processed; clouds
+     and invalid data are still skipped), or **Use the GSW land mask** (needs the
+     Global Surface Water dataset in `data/auxdata/gsw`).
    - **Common parameters** — change only if you need to (number of CPU cores, an
      optional crop of the scene).
 4. Click **Run Polymer**. A progress bar and the log update while it runs; a

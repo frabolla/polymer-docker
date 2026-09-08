@@ -38,11 +38,30 @@ def test_preflight_prisma_needs_credentials(tmp_path, monkeypatch):
     assert err and ("Earthdata" in err or "CDS" in err)
 
 
-def test_resolve_landmask_modes(monkeypatch):
+def test_resolve_landmask_modes():
     assert pj._resolve_landmask({}) is pj._KEEP
+    assert pj._resolve_landmask({"landmask": "mask"}) is pj._KEEP
+    assert pj._resolve_landmask({"landmask": "process"}) is None
+    assert pj._resolve_landmask({"landmask": "PROCESS"}) is None
+    # backward-compatible aliases from the earlier naming
     assert pj._resolve_landmask({"landmask": "default"}) is pj._KEEP
     assert pj._resolve_landmask({"landmask": "none"}) is None
-    assert pj._resolve_landmask({"landmask": "NONE"}) is None
+
+
+def test_apply_land_mode_sets_bitmask():
+    from params_schema import BITMASK_INVALID_PROCESS_LAND
+
+    pk: dict = {}
+    pj.apply_land_mode({"landmask": "process"}, pk)
+    assert pk["BITMASK_INVALID"] == BITMASK_INVALID_PROCESS_LAND
+
+    pk = {}
+    pj.apply_land_mode({"landmask": "mask"}, pk)
+    assert "BITMASK_INVALID" not in pk
+
+    pk = {"BITMASK_INVALID": 0}  # a value from Advanced params wins
+    pj.apply_land_mode({"landmask": "process"}, pk)
+    assert pk["BITMASK_INVALID"] == 0
 
 
 def test_preflight_gsw_needs_dataset(tmp_path, monkeypatch):

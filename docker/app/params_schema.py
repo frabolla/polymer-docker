@@ -41,13 +41,18 @@ NORMALIZE = [0, 1, 2, 3]
 # meteorological source is an explicit per-run choice (never silently NASA).
 ANCILLARY_SOURCES = ["NASA", "ERA5", "none"]
 
-# Land mask applied when building the Level-1 product. Codes only; descriptions
-# come from i18n ("landmask.<code>").
-#   default : the reader's own behaviour (embedded mask for OLCI/MERIS, none for
-#             MSI/PRISMA/HICO/OLI)
-#   none    : force no land mask — process land pixels too
-#   gsw     : Global Surface Water dataset (needs the GSW tiles in data/auxdata/gsw)
-LANDMASK_MODES = ["default", "none", "gsw"]
+# How land is handled. Codes only; descriptions come from i18n ("landmask.<code>").
+#   mask    : Polymer's default — land pixels are flagged and NOT corrected
+#   process : correct land pixels too. Drops the geographic land mask and clears
+#             the LAND bit from BITMASK_INVALID (see BITMASK_INVALID_PROCESS_LAND)
+#   gsw     : use the Global Surface Water dataset as the land mask
+#             (needs the GSW tiles in data/auxdata/gsw)
+LANDMASK_MODES = ["mask", "process", "gsw"]
+
+# Polymer's default `BITMASK_INVALID` is 1+2+4+32+512 (polymer/params.py):
+# LAND | CLOUD_BASE | L1_INVALID | EXCEPTION | EXTERNAL_MASK. Removing LAND (1)
+# lets land pixels be corrected while still skipping clouds / invalid data.
+BITMASK_INVALID_PROCESS_LAND = 2 + 4 + 32 + 512
 
 # Common fields, always shown in the processing form.
 # type: int (only int is used for now)
