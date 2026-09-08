@@ -49,6 +49,28 @@ def resolve_sensor(cfg: dict) -> str:
     return sensor
 
 
+# Readers whose constructor accepts `landmask=` (Level1_NASA / the generic
+# Level1 dispatcher do not).
+_LANDMASK_SENSORS = {"olci", "msi", "meris", "prisma", "hico", "landsat8"}
+# Where GSW tiles live if the user picked the "gsw" land mask.
+GSW_DIR = Path(os.environ.get("DIR_DATA", "/data")) / "auxdata" / "gsw"
+_KEEP = object()  # sentinel: leave the reader's own landmask default alone
+
+
+def _resolve_landmask(cfg: dict):
+    """Turn the UI's landmask choice into what a Level1 reader expects."""
+    mode = (cfg.get("landmask") or "default").lower()
+    if mode in ("", "default"):
+        return _KEEP
+    if mode in ("none", "no", "off"):
+        return None
+    if mode == "gsw":
+        from polymer.gsw import GSW
+
+        return GSW(directory=str(GSW_DIR))
+    return _KEEP
+
+
 def build_level1(cfg: dict):
     from polymer.level1 import Level1
 
@@ -59,6 +81,11 @@ def build_level1(cfg: dict):
     anc = build_ancillary(cfg.get("ancillary", "auto"))
     if anc is not None:
         l1_kwargs["ancillary"] = anc
+
+    if sensor in _LANDMASK_SENSORS:
+        lm = _resolve_landmask(cfg)
+        if lm is not _KEEP:
+            l1_kwargs["landmask"] = lm
 
     if sensor in ("", "auto"):
         return Level1(src, **l1_kwargs)
@@ -202,6 +229,19 @@ def _preflight(cfg: dict) -> str | None:
                 "PRISMA needs meteorological data (ozone / wind / pressure) that "
                 "Polymer downloads from NASA Earthdata. Add a NASA Earthdata "
                 "account (or a Copernicus CDS key) in the Setup tab, then run again."
+            )
+
+    if (cfg.get("landmask") or "").lower() == "gsw":
+        if sensor not in _LANDMASK_SENSORS:
+            return (
+                f"The '{sensor}' reader does not support a land mask. Pick "
+                "'Product's built-in mask' or 'None' for the land mask."
+            )
+        if not GSW_DIR.is_dir() or not any(GSW_DIR.iterdir()):
+            return (
+                "The Global Surface Water land mask needs its dataset, which is "
+                f"not present ({GSW_DIR}). Put the GSW tiles there, or choose a "
+                "different land mask."
             )
     return None
 

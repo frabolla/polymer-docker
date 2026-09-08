@@ -204,6 +204,13 @@ account. Without one it still works for most sensors using built-in data — but
      **PRISMA** and **HICO** pick it from the list yourself.
    - **Output format** — `hdf4` (default, Polymer's native format) or `netcdf4`
      (more portable). Same pixel values either way.
+   - **Meteorological data** — pick the source for ozone / wind / pressure:
+     **NASA Earthdata**, **Copernicus ERA5**, or **None** (built-in
+     climatologies; not allowed for PRISMA). Nothing is pre-selected — choose
+     it every run.
+   - **Land mask** — **Product's built-in mask** (default; OLCI/MERIS only),
+     **None** (process land pixels too), or **GSW** (needs the Global Surface
+     Water dataset in `data/auxdata/gsw`).
    - **Common parameters** — change only if you need to (number of CPU cores, an
      optional crop of the scene).
 4. Click **Run Polymer**. A progress bar and the log update while it runs; a

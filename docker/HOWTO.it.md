@@ -210,6 +210,13 @@ interni — ma **PRISMA non parte** senza un account NASA Earthdata o Copernicus
      **PRISMA** e **HICO** scegli tu dall'elenco.
    - **Formato di output** — `hdf4` (predefinito, formato nativo di Polymer) o
      `netcdf4` (più portabile). I valori dei pixel sono identici.
+   - **Dati meteo ausiliari** — scegli la fonte di ozono / vento / pressione:
+     **NASA Earthdata**, **Copernicus ERA5** o **Nessuna** (climatologie
+     interne; non per PRISMA). Nulla è preselezionato — scegli a ogni
+     elaborazione.
+   - **Maschera di terra** — **Maschera integrata del prodotto** (predefinita;
+     solo OLCI/MERIS), **Nessuna** (elabora anche i pixel di terra) o **GSW**
+     (serve il dataset Global Surface Water in `data/auxdata/gsw`).
    - **Parametri comuni** — cambiali solo se serve (numero di core CPU, un
      eventuale ritaglio della scena).
 4. Clicca **Avvia Polymer**. Durante l'elaborazione si aggiornano una barra di

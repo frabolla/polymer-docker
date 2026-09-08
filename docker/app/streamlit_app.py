@@ -34,6 +34,7 @@ import uploads
 from params_schema import (
     ANCILLARY_SOURCES,
     COMMON_PARAMS,
+    LANDMASK_MODES,
     NEEDS_EXPLICIT_SENSOR,
     NORMALIZE,
     OUTPUT_FORMATS,
@@ -423,6 +424,7 @@ def build_job_config(
     fmt: str,
     resolution: str,
     ancillary: str,
+    landmask: str,
     output_name: str,
     common_vals: dict,
     advanced: dict,
@@ -450,6 +452,7 @@ def build_job_config(
         "fmt": fmt,
         "resolution": resolution,
         "ancillary": ancillary,
+        "landmask": landmask,
         "l1_kwargs": l1_kwargs,
         "polymer_kwargs": polymer_kwargs,
     }
@@ -655,13 +658,32 @@ def tab_process() -> None:
         else:
             st.caption(i18n.t("process.detect_fail"))
 
-    ancillary = st.selectbox(
-        i18n.t("process.ancillary"),
-        ANCILLARY_SOURCES,
-        format_func=lambda k: i18n.t(f"ancillary.{k}"),
-        index=0,
-        help=i18n.t("process.ancillary_help"),
-    )
+    a_col, l_col = st.columns(2)
+    with a_col:
+        cs = cred.status()
+        configured = [s for s, ok in (("NASA", cs["earthdata"]), ("ERA5", cs["cds"])) if ok]
+        st.caption(
+            i18n.t("process.ancillary_configured", srcs=", ".join(configured))
+            if configured else i18n.t("process.ancillary_none_configured")
+        )
+        ancillary = st.selectbox(
+            i18n.t("process.ancillary"),
+            ANCILLARY_SOURCES,
+            format_func=lambda k: i18n.t(f"ancillary.{k}"),
+            index=None,
+            placeholder=i18n.t("process.ancillary_choose"),
+            help=i18n.t("process.ancillary_help"),
+        )
+    with l_col:
+        landmask = st.selectbox(
+            i18n.t("process.landmask"),
+            LANDMASK_MODES,
+            format_func=lambda k: i18n.t(f"landmask.{k}"),
+            index=0,
+            help=i18n.t("process.landmask_help"),
+        )
+        if landmask == "default" and sensor in ("MSI", "PRISMA", "HICO", "LANDSAT8"):
+            st.caption(i18n.t("process.landmask_none_builtin", sensor=sensor))
 
     st.markdown(i18n.t("process.common_params"))
     common_vals: dict = {}
@@ -723,6 +745,9 @@ def tab_process() -> None:
         st.error(i18n.t("process.prisma_needs_creds"))
         prisma_block = True
 
+    if ancillary is None:
+        st.info(i18n.t("process.ancillary_need_choice"))
+
     free = status.free_space_mb()
     if free < 2000:
         st.warning(i18n.t("process.low_disk", mb=free))
@@ -730,7 +755,7 @@ def tab_process() -> None:
     if st.button(
         i18n.t("process.run"),
         type="primary",
-        disabled=not selected or free < 500 or prisma_block,
+        disabled=not selected or ancillary is None or free < 500 or prisma_block,
     ):
         advanced = parse_advanced(advanced_text)
         cfgs = [
@@ -740,6 +765,7 @@ def tab_process() -> None:
                 fmt=fmt,
                 resolution=resolution,
                 ancillary=ancillary,
+                landmask=landmask,
                 output_name=output_name if len(selected) == 1 else "",
                 common_vals=common_vals,
                 advanced=advanced,

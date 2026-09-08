@@ -37,8 +37,17 @@ WATER_MODELS = ["PR05", "MM01", "MM01_FOQ"]
 # Codes only; descriptions come from i18n ("normalize.<code>").
 NORMALIZE = [0, 1, 2, 3]
 
-# Codes only; descriptions come from i18n ("ancillary.<code>").
-ANCILLARY_SOURCES = ["auto", "NASA", "ERA5", "none"]
+# Codes only; descriptions come from i18n ("ancillary.<code>"). No "auto": the
+# meteorological source is an explicit per-run choice (never silently NASA).
+ANCILLARY_SOURCES = ["NASA", "ERA5", "none"]
+
+# Land mask applied when building the Level-1 product. Codes only; descriptions
+# come from i18n ("landmask.<code>").
+#   default : the reader's own behaviour (embedded mask for OLCI/MERIS, none for
+#             MSI/PRISMA/HICO/OLI)
+#   none    : force no land mask — process land pixels too
+#   gsw     : Global Surface Water dataset (needs the GSW tiles in data/auxdata/gsw)
+LANDMASK_MODES = ["default", "none", "gsw"]
 
 # Common fields, always shown in the processing form.
 # type: int (only int is used for now)

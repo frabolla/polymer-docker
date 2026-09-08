@@ -611,11 +611,41 @@ _STRINGS: dict[str, dict[str, str]] = {
               "I valori dei pixel sono identici.",
     },
     "process.ancillary_help": {
-        "en": "'auto' uses whatever you configured in Setup (NASA or Copernicus). "
-              "For PRISMA a real account is required.",
-        "it": "'auto' usa ciò che hai configurato in Configurazione (NASA o "
-              "Copernicus). Per PRISMA serve un account reale.",
+        "en": "Where Polymer gets ozone / wind / pressure. Pick it yourself each "
+              "run. 'None' uses built-in climatologies (not allowed for PRISMA).",
+        "it": "Da dove Polymer prende ozono / vento / pressione. Scegli tu a ogni "
+              "elaborazione. 'Nessuna' usa climatologie interne (non per PRISMA).",
     },
+    "process.ancillary_choose": {"en": "Choose a source…", "it": "Scegli una fonte…"},
+    "process.ancillary_need_choice": {
+        "en": "Choose the meteorological-data source above before running.",
+        "it": "Scegli la fonte dei dati meteo qui sopra prima di elaborare.",
+    },
+    "process.ancillary_configured": {
+        "en": "Configured in Setup: {srcs}", "it": "Configurate in Configurazione: {srcs}",
+    },
+    "process.ancillary_none_configured": {
+        "en": "No meteo account configured yet — add one on the Setup tab.",
+        "it": "Nessun account meteo configurato — aggiungine uno nella scheda Configurazione.",
+    },
+    "process.landmask": {"en": "Land mask", "it": "Maschera di terra"},
+    "process.landmask_help": {
+        "en": "Whether land pixels are masked out. 'Built-in' uses the mask "
+              "supplied with the product (OLCI/MERIS only). 'None' processes land "
+              "too. 'GSW' uses the Global Surface Water dataset (must be present).",
+        "it": "Se mascherare i pixel di terra. 'Integrata' usa la maschera fornita "
+              "col prodotto (solo OLCI/MERIS). 'Nessuna' elabora anche la terra. "
+              "'GSW' usa il dataset Global Surface Water (deve essere presente).",
+    },
+    "process.landmask_none_builtin": {
+        "en": "{sensor} products carry no built-in land mask — this is the same "
+              "as 'None'. Use 'GSW' to actually mask land.",
+        "it": "I prodotti {sensor} non hanno una maschera di terra integrata — "
+              "equivale a 'Nessuna'. Usa 'GSW' per mascherare davvero la terra.",
+    },
+    "landmask.default": {"en": "Product's built-in mask", "it": "Maschera integrata del prodotto"},
+    "landmask.none": {"en": "None — process land too", "it": "Nessuna — elabora anche la terra"},
+    "landmask.gsw": {"en": "Global Surface Water dataset", "it": "Dataset Global Surface Water"},
     "fmt.hdf4": {"en": "HDF (.hdf) — recommended", "it": "HDF (.hdf) — consigliato"},
     "fmt.netcdf4": {"en": "NetCDF (.nc)", "it": "NetCDF (.nc)"},
     "process.no_products": {

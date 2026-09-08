@@ -38,6 +38,36 @@ def test_preflight_prisma_needs_credentials(tmp_path, monkeypatch):
     assert err and ("Earthdata" in err or "CDS" in err)
 
 
+def test_resolve_landmask_modes(monkeypatch):
+    assert pj._resolve_landmask({}) is pj._KEEP
+    assert pj._resolve_landmask({"landmask": "default"}) is pj._KEEP
+    assert pj._resolve_landmask({"landmask": "none"}) is None
+    assert pj._resolve_landmask({"landmask": "NONE"}) is None
+
+
+def test_preflight_gsw_needs_dataset(tmp_path, monkeypatch):
+    l1 = tmp_path / "scene.he5"
+    l1.write_bytes(b"x")
+    monkeypatch.setattr(pj, "GSW_DIR", tmp_path / "gsw")  # missing
+
+    err = pj._preflight({"input": str(l1), "sensor": "MSI", "landmask": "gsw"})
+    assert err and "Global Surface Water" in err
+
+    (tmp_path / "gsw").mkdir()
+    err = pj._preflight({"input": str(l1), "sensor": "MSI", "landmask": "gsw"})
+    assert err and "Global Surface Water" in err  # dir exists but empty
+
+    (tmp_path / "gsw" / "tile.nc").write_bytes(b"x")
+    assert pj._preflight({"input": str(l1), "sensor": "MSI", "landmask": "gsw"}) is None
+
+
+def test_preflight_gsw_rejected_for_unsupported_sensor(tmp_path):
+    l1 = tmp_path / "A2004181.L1C"
+    l1.write_bytes(b"x")
+    err = pj._preflight({"input": str(l1), "sensor": "MODIS", "landmask": "gsw"})
+    assert err and "does not support a land mask" in err
+
+
 def test_humanize_error_known_cases():
     assert "Earthdata login failed" in pj._humanize_error(
         "wget ... Username/Password Authentication Failed"

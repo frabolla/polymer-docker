@@ -36,7 +36,7 @@ work continues on a local branch also named `polymer-docker-container` in the
 worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
 
 **Verified working:**
-- Image builds natively on amd64 and arm64 (multi-stage); 51-test pytest suite
+- Image builds natively on amd64 and arm64 (multi-stage); 59-test pytest suite
   passes (`test_quicklook.py` is skipped where xarray/netCDF4 are absent, e.g.
   the lean CI `test` job; it runs in the image).
 - Container starts, `/_stcore/health` OK, UI loads in EN and IT, language
@@ -122,12 +122,24 @@ docker/
     sound.py                 chime_wav_bytes(): a short success WAV built in
                              memory for st.audio(autoplay=True) (no audio asset)
     params_schema.py         structural param data only. OUTPUT_FORMATS =
-                             ["hdf4", "netcdf4"] — HDF is the default output
+                             ["hdf4", "netcdf4"] (HDF default). ANCILLARY_SOURCES
+                             = ["NASA","ERA5","none"] — no "auto" (the meteo
+                             source is an explicit per-run choice; the UI
+                             selectbox has index=None). LANDMASK_MODES =
+                             ["default","none","gsw"].
     polymer_job.py           subprocess: builds Level1/Level2, calls
                              polymer.main.run_atm_corr (v4 API). resolve_sensor(),
-                             _auto_ancillary_kind() (.netrc->nasa, .cdsapirc->
-                             era5, else none — never assumes NASA), _preflight(),
-                             _humanize_error(). Prints "[polymer_job]
+                             _auto_ancillary_kind() (kept for old cfgs; .netrc->
+                             nasa, .cdsapirc->era5, else none — never assumes
+                             NASA), _resolve_landmask() (cfg["landmask"]: default
+                             -> _KEEP the reader default; none -> None; gsw ->
+                             GSW(directory=/data/auxdata/gsw); only wired for
+                             _LANDMASK_SENSORS = olci/msi/meris/prisma/hico/
+                             landsat8), _preflight() (also the GSW-dataset check),
+                             _humanize_error(). NOTE: landmask is a Level1
+                             constructor kwarg, NOT a run_atm_corr kwarg — so a
+                             `landmask=...` typed in Advanced params is silently
+                             ignored by Polymer. Prints "[polymer_job]
                              BLOCKS_TOTAL n"; writes <run_id>.result.json
     job_runner.py            one detached job at a time + queue; state in
                              /data/output/_run/; poll() heartbeat; cancel();
