@@ -91,8 +91,11 @@ When it is ready, the browser opens by itself at **<http://localhost:8501>**.
    can **Cancel** at any time. It keeps running if you switch tabs.
 4. Select **several products at once** for batch processing — a summary table
    shows which succeeded, and a button re-runs just the failed ones.
-5. Browse outputs on the **Results** tab: pick a file, choose a variable (or the
-   automatic RGB / chlorophyll view), see a histogram, and download the file.
+5. On the **Results** tab: pick an output file and **Download** it, or copy the
+   `data/output` path from the *Working folders* panel to open it on your
+   computer. An optional "quick visual check" renders a small RGB preview just to
+   confirm the correction ran — the real output is the file itself (HDF by
+   default).
 
 ## 6. Stop / update
 

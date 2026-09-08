@@ -25,6 +25,10 @@ services:
         POLYMER_GUI_VERSION: ${POLYMER_GUI_VERSION:-dev}
     image: polymer-gui:local
     container_name: polymer-gui
+    environment:
+      # Host path of the folder that holds data/ (set by the launchers). Lets the
+      # interface show where input/output/config are on your computer.
+      POLYMER_HOST_DIR: ${POLYMER_HOST_DIR:-}
     ports:
       # Bound to localhost only: the interface is NOT exposed to the local
       # network. Change the left-hand number (e.g. 127.0.0.1:8502:8501) if the

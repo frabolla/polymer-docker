@@ -38,6 +38,9 @@ fi
 
 mkdir -p data/input data/output data/auxdata data/ancillary data/config
 
+# Let the interface show the folder paths as they are on this computer.
+export POLYMER_HOST_DIR="$REPO_ROOT/data"
+
 echo
 echo "Building / starting. The FIRST run takes 10-20 minutes."
 echo

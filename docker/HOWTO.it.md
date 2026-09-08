@@ -201,7 +201,8 @@ interni — ma **PRISMA non parte** senza un account NASA Earthdata o Copernicus
      l'elaborazione in lotto).
    - **Sensore** — lascia **auto**; la pagina mostra il sensore rilevato. Per
      **PRISMA** e **HICO** scegli tu dall'elenco.
-   - **Formato di output** — `netcdf4` (consigliato) o `hdf4`.
+   - **Formato di output** — `hdf4` (predefinito, formato nativo di Polymer) o
+     `netcdf4` (più portabile). I valori dei pixel sono identici.
    - **Parametri comuni** — cambiali solo se serve (numero di core CPU, un
      eventuale ritaglio della scena).
 4. Clicca **Avvia Polymer**. Durante l'elaborazione si aggiornano una barra di
@@ -210,9 +211,12 @@ interni — ma **PRISMA non parte** senza un account NASA Earthdata o Copernicus
 5. Al termine il file risultato è nella cartella **`data/output`**. Se hai
    elaborato più prodotti, una tabella riepilogo mostra quali sono riuscite e un
    pulsante ripete solo i falliti.
-6. Apri la scheda **Risultati** per sfogliare gli output: scegli un file, scegli
-   una variabile (o la vista automatica RGB / clorofilla), vedi un istogramma e
-   clicca **Scarica questo file**.
+6. Apri la scheda **Risultati**: scegli il file di output e clicca **Scarica
+   questo file**, oppure usa il pannello *Cartelle di lavoro* per aprire la
+   cartella `data/output` sul tuo computer. C'è un "controllo visivo rapido"
+   facoltativo che mostra una piccola anteprima RGB — solo per confermare che la
+   correzione è stata eseguita; ciò che conta è il file. A fine elaborazione
+   senti anche un breve suono e vedi una conferma verde.
 
 La scheda **Cronologia** mostra una tabella delle elaborazioni precedenti.
 

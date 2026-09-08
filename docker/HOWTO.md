@@ -196,7 +196,8 @@ account. Without one it still works for most sensors using built-in data — but
      processing).
    - **Sensor** — leave **auto**; the page shows the detected sensor. For
      **PRISMA** and **HICO** pick it from the list yourself.
-   - **Output format** — `netcdf4` (recommended) or `hdf4`.
+   - **Output format** — `hdf4` (default, Polymer's native format) or `netcdf4`
+     (more portable). Same pixel values either way.
    - **Common parameters** — change only if you need to (number of CPU cores, an
      optional crop of the scene).
 4. Click **Run Polymer**. A progress bar and the log update while it runs; a
@@ -204,9 +205,11 @@ account. Without one it still works for most sensors using built-in data — but
 5. When it finishes, the result file is in the **`data/output`** folder. If you
    ran several products, a summary table shows which succeeded and a button
    re-runs just the failed ones.
-6. Open the **Results** tab to browse outputs: pick a file, choose a variable
-   (or the automatic RGB / chlorophyll view), see a histogram, and click
-   **Download this file**.
+6. Open the **Results** tab: pick the output file and click **Download this
+   file**, or use the *Working folders* panel to open the `data/output` folder on
+   your computer. There is an optional "quick visual check" that renders a small
+   RGB preview — only to confirm the correction ran; the deliverable is the file.
+   You also hear a short chime and see a green confirmation when a run finishes.
 
 The **History** tab shows a table of your previous runs.
 

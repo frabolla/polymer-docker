@@ -56,8 +56,9 @@ command line.
 6. **Processing** tab → pick one or more products and a sensor (`auto` shows the
    detected one) → **Run Polymer**. A progress bar and a Cancel button track the
    run; batches get a summary with a "re-run failed" button.
-7. **Results** tab → browse the output files, preview any variable with a
-   histogram, and download.
+7. **Results** tab → download the corrected output file (HDF by default), or open
+   its folder from the *Working folders* panel. A short chime and a green banner
+   confirm each run; an optional quick preview shows the corrected image.
 
 ## After an update (no full rebuild)
 

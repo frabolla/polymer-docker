@@ -4,6 +4,9 @@ Web interface for Polymer (atmospheric correction of ocean colour).
 Opens in the browser at http://localhost:8501 while the container is running.
 Nothing to type on a command line: every parameter is set from here.
 
+Polymer's job is atmospheric correction only. The deliverable is the corrected
+Level-2 image file (HDF by default); the small preview is just a visual check.
+
 English is the primary language; Italian can be selected in the sidebar.
 """
 from __future__ import annotations
@@ -32,6 +35,7 @@ from params_schema import (
     SENSORS,
     WATER_MODELS,
 )
+from sound import chime_wav_bytes
 
 APP_DIR = Path(__file__).parent
 LICENCE_FILE = APP_DIR / "LICENCE.TXT"
@@ -40,8 +44,21 @@ LICENCE_FLAG = CONFIG_DIR / ".polymer_licence_accepted"
 OUTPUT_DIR = Path("/data/output")
 INPUT_DIR = Path("/data/input")
 
+# Host-side path of the folder that holds input/ output/ config/ (set by the
+# launcher via docker-compose). Empty when the container was started by hand.
+HOST_DIR = os.environ.get("POLYMER_HOST_DIR", "").strip()
+
 st.set_page_config(
     page_title="Polymer", page_icon=":material/water_drop:", layout="wide"
+)
+
+# A plain water-drop mark (no official Polymer logo ships with the source).
+_LOGO_SVG = (
+    "<svg width='34' height='34' viewBox='0 0 24 24' fill='none' "
+    "xmlns='http://www.w3.org/2000/svg'><path d='M12 2.5c4 5 6.5 8.2 6.5 11.4A6.5 "
+    "6.5 0 0 1 5.5 13.9C5.5 10.7 8 7.5 12 2.5Z' fill='#2E7D9A'/>"
+    "<path d='M9.2 12.4c0 2 1.5 3.4 3.3 3.6' stroke='#fff' stroke-width='1.4' "
+    "stroke-linecap='round'/></svg>"
 )
 
 # Hide Streamlit's own chrome (the "Deploy" button, the hamburger menu and the
@@ -56,6 +73,10 @@ st.markdown(
       [data-testid="stStatusWidget"] {display: none !important;}
       #MainMenu {visibility: hidden !important;}
       footer {visibility: hidden !important;}
+      .polymer-head {display:flex; align-items:center; gap:.6rem; margin-bottom:.1rem;}
+      .polymer-head h1 {margin:0; font-size:2.1rem;}
+      .polymer-foot {margin-top:2.5rem; padding-top:.6rem; border-top:1px solid #e6e6e6;
+                     color:#8a8a8a; font-size:.78rem;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -97,7 +118,6 @@ def licence_gate() -> bool:
         return True
     st.title(i18n.t("licence.title"))
     st.caption(i18n.t("app.fork_note"))
-    st.caption(i18n.t("app.author"))
     st.warning(i18n.t("licence.warning"))
 
     with st.expander(i18n.t("licence.steps_header"), expanded=True):
@@ -118,35 +138,127 @@ def _mark(ok: bool) -> str:
     return _MARK_OK if ok else _MARK_TODO
 
 
+def _config_steps() -> list[tuple[bool, str]]:
+    """(done, label) for each thing the user must set up before a run."""
+    cs = cred.status()
+    return [
+        (status.cython_modules_ok(), i18n.t("status.modules")),
+        (status.auxdata_present(), i18n.t("check.auxdata")),
+        (cs["earthdata"] or cs["cds"], i18n.t("check.creds")),
+    ]
+
+
 def sidebar_status() -> None:
     st.sidebar.header(i18n.t("status.header"))
-
-    st.sidebar.write(_mark(status.cython_modules_ok()) + " " + i18n.t("status.modules"))
-
-    ok_aux = status.auxdata_present()
-    st.sidebar.write(
-        _mark(ok_aux) + " " + i18n.t("status.auxdata", size=status.auxdata_size_mb())
-    )
+    for done, label in _config_steps():
+        st.sidebar.write(_mark(done) + " " + label)
 
     cs = cred.status()
-    st.sidebar.write(
-        _mark(cs["earthdata"])
-        + " " + i18n.t("status.earthdata")
-        + (f" ({cs['earthdata_login']})" if cs["earthdata"] else "")
-    )
-    st.sidebar.write(_mark(cs["cds"]) + " " + i18n.t("status.cds"))
+    if cs["earthdata"]:
+        st.sidebar.caption(i18n.t("status.earthdata") + f": {cs['earthdata_login']}")
+    if cs["cds"]:
+        st.sidebar.caption(i18n.t("status.cds") + ": " + i18n.t("check.saved_short"))
 
     st.sidebar.divider()
-    if not ok_aux:
+    if not status.auxdata_present():
         st.sidebar.info(i18n.t("status.need_auxdata"))
-    st.sidebar.caption(i18n.t("status.folders"))
     st.sidebar.caption(i18n.t("sidebar.freespace", mb=status.free_space_mb()))
     st.sidebar.caption(i18n.t("sidebar.version", v=status.app_version()))
-    st.sidebar.caption(i18n.t("app.author"))
+
+
+# --------------------------------------------------------------- working folders
+def _host_path(sub: str) -> str:
+    if HOST_DIR:
+        return str(Path(HOST_DIR) / sub)
+    return f"/data/{sub}   ({i18n.t('folders.in_container')})"
+
+
+def render_folders(context: str) -> None:
+    """Show the on-disk locations of the work folders, with copy buttons."""
+    with st.expander(i18n.t("folders.header"), expanded=False):
+        st.caption(i18n.t("folders.open_hint"))
+        st.write("**" + i18n.t("folders.input") + "**")
+        st.code(_host_path("input"), language="text")
+        if context != "input_only":
+            st.write("**" + i18n.t("folders.output") + "**")
+            st.code(_host_path("output"), language="text")
+        st.write("**" + i18n.t("folders.config") + "**")
+        st.code(_host_path("config"), language="text")
+        if not HOST_DIR:
+            st.caption(i18n.t("folders.container_note"))
 
 
 # --------------------------------------------------------------------- setup tab
+def _cred_box(kind: str) -> None:
+    """One bordered credential panel: current state + Save / Verify / Remove."""
+    with st.container(border=True):
+        if kind == "NASA":
+            st.markdown("**" + i18n.t("status.earthdata") + "**")
+            ed = cred.read_earthdata()
+            saved = bool(ed.get("login"))
+            if saved:
+                st.success(i18n.t("config.saved_as", who=ed.get("login", "")))
+            else:
+                st.caption(i18n.t("config.not_saved"))
+            with st.form("form_nasa"):
+                login = st.text_input(i18n.t("config.nasa_user"), value=ed.get("login", ""))
+                pw = st.text_input(i18n.t("config.nasa_pass"), type="password")
+                b1, b2 = st.columns(2)
+                save = b1.form_submit_button(i18n.t("config.nasa_save"), type="primary")
+                verify = b2.form_submit_button(i18n.t("config.cred_test"))
+            if verify:
+                _show_cred_test(cred.test_earthdata(login, pw))
+            if save:
+                if login and pw:
+                    cred.write_earthdata(login, pw)
+                    st.success(i18n.t("config.nasa_saved"))
+                    st.rerun()
+                else:
+                    st.error(i18n.t("config.nasa_need_both"))
+            if saved and st.button(i18n.t("config.remove"), key="rm_nasa"):
+                cred.clear_earthdata()
+                st.info(i18n.t("config.nasa_removed"))
+                st.rerun()
+            st.caption(i18n.t("config.nasa_hint"))
+
+        elif kind == "ERA5":
+            st.markdown("**" + i18n.t("status.cds") + "**")
+            cds = cred.read_cds()
+            saved = bool(cds.get("key"))
+            if saved:
+                st.success(i18n.t("config.saved_as", who=i18n.t("check.saved_short")))
+            else:
+                st.caption(i18n.t("config.not_saved"))
+            with st.form("form_cds"):
+                key = st.text_input(
+                    i18n.t("config.cds_key"),
+                    value=cds.get("key", ""),
+                    help=i18n.t("config.cds_key_help"),
+                )
+                b1, b2 = st.columns(2)
+                save = b1.form_submit_button(i18n.t("config.cds_save"), type="primary")
+                verify = b2.form_submit_button(i18n.t("config.cred_test"))
+            if verify:
+                _show_cred_test(cred.test_cds(key.strip()))
+            if save:
+                if key.strip():
+                    cred.write_cds(key.strip())
+                    st.success(i18n.t("config.cds_saved"))
+                    st.rerun()
+                else:
+                    st.error(i18n.t("config.cds_need_key"))
+            if saved and st.button(i18n.t("config.remove"), key="rm_cds"):
+                cred.clear_cds()
+                st.info(i18n.t("config.cds_removed"))
+                st.rerun()
+            st.caption(i18n.t("config.cds_hint"))
+
+
 def tab_config() -> None:
+    # 1. what this tab is for
+    st.info(i18n.t("config.intro"))
+
+    # 2. static auxiliary data (downloaded once, by the user)
     st.subheader(i18n.t("config.aux_header"))
     st.write(i18n.t("config.aux_text"))
 
@@ -162,17 +274,18 @@ def tab_config() -> None:
 
     aux = aux_job.status()
     if aux["running"]:
-        # The download runs detached; poll and redraw while it works.
         st.info(i18n.t("config.aux_running", s=aux["elapsed_s"]))
+        st.progress(0.0, text=i18n.t("run.phase_download"))
         if aux["tail"]:
-            st.code(aux["tail"], language="text")
+            with st.expander(i18n.t("config.aux_log"), expanded=False):
+                st.code(aux["tail"], language="text")
         if st.button(i18n.t("config.aux_cancel")):
             aux_job.cancel()
             st.rerun()
         time.sleep(2)
         st.rerun()
     else:
-        if aux["rc"] is not None:  # a download finished since last render
+        if aux["rc"] is not None:
             if aux["rc"] == 0 and ok_aux:
                 st.success(i18n.t("config.aux_ok"))
             elif aux["rc"] == 130:
@@ -190,7 +303,6 @@ def tab_config() -> None:
             if st.button(i18n.t("config.aux_dismiss")):
                 aux_job.clear()
                 st.rerun()
-
         if st.button(
             i18n.t("config.aux_button"), type="primary", disabled=free < 500
         ):
@@ -198,69 +310,23 @@ def tab_config() -> None:
                 st.rerun()
 
     st.divider()
+
+    # 3. meteorological-data credentials (saved and reused)
     st.subheader(i18n.t("config.cred_header"))
     st.write(i18n.t("config.cred_text"))
+    st.caption(i18n.t("config.cred_persist"))
 
     src = st.radio(
         i18n.t("config.cred_source"),
-        options=ANCILLARY_SOURCES,
+        options=["NASA", "ERA5"],
         format_func=lambda k: i18n.t(f"ancillary.{k}"),
+        horizontal=True,
         key="anc_source_config",
     )
+    _cred_box(src)
 
-    if src == "NASA":
-        ed = cred.read_earthdata()
-        with st.form("form_nasa"):
-            login = st.text_input(i18n.t("config.nasa_user"), value=ed.get("login", ""))
-            pw = st.text_input(i18n.t("config.nasa_pass"), type="password")
-            c1, c2, c3 = st.columns(3)
-            save = c1.form_submit_button(i18n.t("config.nasa_save"), type="primary")
-            verify = c2.form_submit_button(i18n.t("config.cred_test"))
-            clear = c3.form_submit_button(i18n.t("config.remove"))
-        if verify:
-            _show_cred_test(cred.test_earthdata(login, pw))
-        if save:
-            if login and pw:
-                cred.write_earthdata(login, pw)
-                st.success(i18n.t("config.nasa_saved"))
-                st.rerun()
-            else:
-                st.error(i18n.t("config.nasa_need_both"))
-        if clear:
-            cred.clear_earthdata()
-            st.info(i18n.t("config.nasa_removed"))
-            st.rerun()
-        st.caption(i18n.t("config.nasa_hint"))
-
-    elif src == "ERA5":
-        cds = cred.read_cds()
-        with st.form("form_cds"):
-            key = st.text_input(
-                i18n.t("config.cds_key"),
-                value=cds.get("key", ""),
-                help=i18n.t("config.cds_key_help"),
-            )
-            c1, c2, c3 = st.columns(3)
-            save = c1.form_submit_button(i18n.t("config.cds_save"), type="primary")
-            verify = c2.form_submit_button(i18n.t("config.cred_test"))
-            clear = c3.form_submit_button(i18n.t("config.remove"))
-        if verify:
-            _show_cred_test(cred.test_cds(key.strip()))
-        if save:
-            if key.strip():
-                cred.write_cds(key.strip())
-                st.success(i18n.t("config.cds_saved"))
-                st.rerun()
-            else:
-                st.error(i18n.t("config.cds_need_key"))
-        if clear:
-            cred.clear_cds()
-            st.info(i18n.t("config.cds_removed"))
-            st.rerun()
-        st.caption(i18n.t("config.cds_hint"))
-
-    else:
-        st.info(i18n.t("config.cred_none"))
+    st.divider()
+    render_folders("all")
 
 
 def _show_cred_test(result: tuple[str, str]) -> None:
@@ -331,6 +397,18 @@ def parse_advanced(text: str) -> dict:
 
 
 # --------------------------------------------------------- running job / batch UI
+def _phase(log_text: str, blocks_done: int) -> str:
+    """A one-line human description of what the job is doing right now."""
+    if blocks_done > 0:
+        return i18n.t("run.phase_processing")
+    low = log_text.lower()
+    if "download" in low and ("era5" in low or "meteo" in low or "ancillary" in low):
+        return i18n.t("run.phase_meteo")
+    if "initializing output" in low or "starting processing" in low:
+        return i18n.t("run.phase_starting")
+    return i18n.t("run.phase_reading")
+
+
 def render_running(stt: dict) -> None:
     st.subheader(i18n.t("run.title"))
     if stt.get("total_in_batch", 1) > 1 or stt.get("queued"):
@@ -344,14 +422,30 @@ def render_running(stt: dict) -> None:
         )
     st.write(i18n.t("run.processing", input=Path(stt["input"]).name))
 
+    log_text = job_runner.log_tail(stt["log"], 400)
     done, total = stt.get("blocks_done", 0), stt.get("blocks_total")
-    if total:
-        st.progress(min(done / total, 1.0), text=i18n.t("run.blocks", d=done, n=total))
-    else:
-        st.caption(i18n.t("run.blocks_nototal", d=done))
-    st.caption(i18n.t("run.elapsed", s=stt.get("elapsed_s", 0)))
+    elapsed = stt.get("elapsed_s", 0)
 
-    st.code(job_runner.log_tail(stt["log"], 300), language="text")
+    st.markdown("**" + _phase(log_text, done) + "**")
+    if total:
+        frac = min(done / total, 1.0)
+        eta = ""
+        if done:
+            eta = "  ·  " + i18n.t("run.eta", s=int(elapsed / done * (total - done)))
+        st.progress(frac, text=i18n.t("run.blocks", d=done, n=total) + eta)
+    else:
+        st.progress(
+            min(0.05 + 0.03 * done, 0.9),
+            text=(
+                i18n.t("run.blocks_nototal", d=done)
+                if done
+                else i18n.t("run.phase_meteo")
+            ),
+        )
+    st.caption(i18n.t("run.elapsed", s=elapsed))
+
+    with st.expander(i18n.t("run.log"), expanded=False):
+        st.code(log_text, language="text")
 
     if st.button(i18n.t("run.cancel"), type="secondary"):
         job_runner.cancel()
@@ -361,30 +455,49 @@ def render_running(stt: dict) -> None:
     st.rerun()
 
 
-def render_batch_summary() -> None:
+def render_last_result() -> None:
+    """Big success / failure panel for the most recent batch, with a chime."""
     batch_id = st.session_state.get("last_batch")
     if not batch_id:
         return
     rows = job_runner.batch_rows(batch_id)
     if not rows:
         return
-    ok = sum(1 for r in rows if r.get("result") == "ok")
-    st.subheader(i18n.t("batch.title"))
-    st.write(i18n.t("batch.summary", ok=ok, fail=len(rows) - ok, n=len(rows)))
-    cols = ["input", "sensor", "result", "duration_s", "output", "error"]
-    disp = [
-        {
-            i18n.t(f"history.col.{c}"): (
-                Path(str(r.get(c, ""))).name if c in ("input", "output") else r.get(c, "")
+    ok_rows = [r for r in rows if r.get("result") == "ok"]
+    fail_rows = [r for r in rows if r.get("result") != "ok"]
+
+    if ok_rows and not fail_rows:
+        st.success(i18n.t("done.title", n=len(ok_rows)))
+    elif ok_rows:
+        st.warning(i18n.t("done.partial", ok=len(ok_rows), fail=len(fail_rows)))
+    else:
+        st.error(i18n.t("done.failed", n=len(fail_rows)))
+
+    # Play the chime once, on the first render after the batch finishes.
+    played_key = f"chime_{batch_id}"
+    if ok_rows and not st.session_state.get(played_key):
+        st.session_state[played_key] = True
+        st.audio(chime_wav_bytes(), format="audio/wav", autoplay=True)
+
+    for r in ok_rows:
+        out = Path(str(r.get("output", "")))
+        st.markdown("**" + i18n.t("done.file", name=out.name) + "**")
+        data_path = OUTPUT_DIR / out.name
+        if data_path.exists() and data_path.stat().st_size <= 400 * 1e6:
+            st.download_button(
+                i18n.t("done.download"),
+                data=data_path.read_bytes(),
+                file_name=out.name,
+                mime="application/octet-stream",
+                key=f"dl_{r['run_id']}",
             )
-            for c in cols
-        }
-        for r in rows
-    ]
-    st.dataframe(disp, width="stretch", hide_index=True)
-    for r in rows:
-        if r.get("result") != "ok" and r.get("error"):
+        st.caption(i18n.t("done.results_tab"))
+
+    for r in fail_rows:
+        if r.get("error"):
             st.error(f"**{Path(str(r.get('input', ''))).name}** — {r['error']}")
+
+    render_folders("output_only")
 
     failed = job_runner.failed_cfgs(batch_id)
     c1, c2 = st.columns(2)
@@ -423,6 +536,18 @@ def _autodetect_sensor(name: str) -> str | None:
         return None
 
 
+def render_getting_started() -> None:
+    """Numbered checklist shown until the setup is complete."""
+    with st.container(border=True):
+        st.markdown("### " + i18n.t("process.checklist_header"))
+        st.caption(i18n.t("process.checklist_intro"))
+        steps = _config_steps()
+        for n, (done, label) in enumerate(steps, 1):
+            st.markdown(f"{_mark(done)} **{n}.** {label}")
+        if not all(d for d, _ in steps):
+            st.info(i18n.t("process.go_setup"))
+
+
 # ---------------------------------------------------------------- processing tab
 def tab_process() -> None:
     job_runner.poll()
@@ -431,16 +556,19 @@ def tab_process() -> None:
         render_running(stt)
         return
 
-    render_batch_summary()
+    render_last_result()
 
-    if not status.overall_ready():
-        st.warning(i18n.t("process.incomplete"))
+    if not status.overall_ready() or not (
+        cred.status()["earthdata"] or cred.status()["cds"]
+    ):
+        render_getting_started()
 
     render_uploader()
 
     products = status.list_input_products()
     if not products:
         st.info(i18n.t("process.no_products"))
+        render_folders("input_only")
         return
 
     col_l, col_r = st.columns([2, 1])
@@ -453,7 +581,13 @@ def tab_process() -> None:
         )
     with col_r:
         sensor = st.selectbox(i18n.t("process.sensor"), SENSORS, index=0)
-        fmt = st.selectbox(i18n.t("process.fmt"), OUTPUT_FORMATS, index=0)
+        fmt = st.selectbox(
+            i18n.t("process.fmt"),
+            OUTPUT_FORMATS,
+            index=0,
+            format_func=lambda f: i18n.t(f"fmt.{f}"),
+            help=i18n.t("process.fmt_help"),
+        )
 
     resolution = "60"
     if sensor == "MSI":
@@ -472,6 +606,7 @@ def tab_process() -> None:
         ANCILLARY_SOURCES,
         format_func=lambda k: i18n.t(f"ancillary.{k}"),
         index=0,
+        help=i18n.t("process.ancillary_help"),
     )
 
     st.markdown(i18n.t("process.common_params"))
@@ -558,6 +693,9 @@ def tab_process() -> None:
             )
             for name in selected
         ]
+        for k in list(st.session_state):
+            if k.startswith("chime_"):
+                del st.session_state[k]
         st.session_state["last_batch"] = job_runner.enqueue(cfgs, version=status.app_version())
         st.rerun()
 
@@ -576,7 +714,6 @@ def tab_guide() -> None:
     st.divider()
     st.subheader(i18n.t("guide.about_header"))
     st.markdown(i18n.t("guide.about_body"))
-    st.markdown(i18n.t("app.author"))
 
 
 # ------------------------------------------------------------------- results tab
@@ -599,6 +736,7 @@ def tab_results() -> None:
     files = _output_files()
     if not files:
         st.info(i18n.t("results.none"))
+        render_folders("output_only")
         return
 
     pick = st.selectbox(
@@ -611,8 +749,6 @@ def tab_results() -> None:
     when = datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds")
     st.caption(i18n.t("results.info", name=pick.name, size=size_mb, when=when))
 
-    # Skip the (potentially large) read while a job is running — the Processing
-    # tab re-executes this whole page every 2 s during a job.
     running = job_runner.state().get("running")
     if size_mb <= 400 and not running:
         st.download_button(
@@ -624,25 +760,18 @@ def tab_results() -> None:
     elif size_mb > 400:
         st.caption(i18n.t("results.too_big", size=size_mb))
 
-    try:
-        vars_ = quicklook.list_2d_vars(str(pick))
-    except Exception as exc:
-        st.caption(i18n.t("process.preview_unavailable", exc=exc))
-        return
+    render_folders("output_only")
 
-    choice = st.selectbox(
-        i18n.t("results.variable"),
-        ["__auto__"] + vars_,
-        format_func=lambda v: i18n.t("results.auto") if v == "__auto__" else v,
-    )
-    try:
-        png = CONFIG_DIR / "_preview.png"
-        desc = quicklook.make_png(
-            str(pick), str(png), var=None if choice == "__auto__" else choice
-        )
-        st.image(str(png), caption=desc, width="stretch")
-    except Exception as exc:
-        st.caption(i18n.t("process.preview_unavailable", exc=exc))
+    # Optional visual check that the correction ran — not a mapping tool.
+    with st.expander(i18n.t("results.preview_header"), expanded=False):
+        st.caption(i18n.t("results.preview_hint"))
+        if st.button(i18n.t("results.preview_make")):
+            try:
+                png = CONFIG_DIR / "_preview.png"
+                desc = quicklook.make_png(str(pick), str(png))
+                st.image(str(png), caption=desc, width="stretch")
+            except Exception as exc:
+                st.caption(i18n.t("process.preview_unavailable", exc=exc))
 
 
 # ------------------------------------------------------------------ history tab
@@ -664,6 +793,13 @@ def tab_history() -> None:
     st.dataframe(display, width="stretch", hide_index=True)
 
 
+def render_footer() -> None:
+    st.markdown(
+        f"<div class='polymer-foot'>{i18n.t('app.footer')}</div>",
+        unsafe_allow_html=True,
+    )
+
+
 # ----------------------------------------------------------------------------- main
 def main() -> None:
     pick_language()
@@ -671,7 +807,11 @@ def main() -> None:
         return
     job_runner.poll()  # keep job state fresh regardless of the active tab
     sidebar_status()
-    st.title("Polymer")
+
+    st.markdown(
+        f"<div class='polymer-head'>{_LOGO_SVG}<h1>Polymer</h1></div>",
+        unsafe_allow_html=True,
+    )
     st.caption(i18n.t("app.caption"))
     st.caption(i18n.t("app.fork_note"))
 
@@ -694,6 +834,8 @@ def main() -> None:
         tab_results()
     with t_hist:
         tab_history()
+
+    render_footer()
 
 
 if __name__ == "__main__":

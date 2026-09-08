@@ -36,9 +36,9 @@ work continues on a local branch also named `polymer-docker-container` in the
 worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
 
 **Verified working:**
-- Image builds natively on amd64 and arm64; 45-test pytest suite passes
-  (`test_quicklook.py` is skipped where xarray/netCDF4 are absent, e.g. the lean
-  CI `test` job; it runs in the image).
+- Image builds natively on amd64 and arm64 (multi-stage); 46-test pytest suite
+  passes (`test_quicklook.py` is skipped where xarray/netCDF4 are absent, e.g.
+  the lean CI `test` job; it runs in the image).
 - Container starts, `/_stcore/health` OK, UI loads in EN and IT, language
   persists, licence gate, all 5 tabs render, no runtime errors.
 - Credential files written `0600`, `/data/config` is `0700`.
@@ -69,13 +69,17 @@ worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
 
 ```
 docker/
-  Dockerfile                 multi-arch (TARGETARCH → env file), apt: git curl wget
-                             tini make build-essential; compiles Cython; pins
-                             streamlit>=1.40,<2; sets DIR_DATA/DIR_POLYMER_*/HOME
+  Dockerfile                 TWO stages. builder: apt git+make+build-essential,
+                             solve the env (TARGETARCH → env file), compile
+                             Cython. final: apt only ca-certificates curl wget
+                             tini, COPY --from=builder the env + /opt/polymer.
+                             Saves ~250 MB (toolchain not shipped). Image ~4.6 GB
+                             — see §7 note.
   docker-compose.yml         service "polymer"; port 127.0.0.1:8501; binds
                              ../data/{input,output,auxdata,ancillary,config};
-                             shm_size 2gb; healthcheck on /_stcore/health;
-                             build arg POLYMER_GUI_VERSION
+                             env POLYMER_HOST_DIR (host path of data/, set by the
+                             launchers) → shown in the UI's "Working folders";
+                             shm_size 2gb; healthcheck on /_stcore/health
   environment.yml (repo root)  exact conda linux-64 lock (amd64) — UPSTREAM file
   docker/environment.arm64.yml version-floor spec for aarch64, solved fresh;
                              keep in sync with pyproject.toml [tool.pixi.deps]
@@ -88,10 +92,19 @@ docker/
   app/
     .streamlit/config.toml   light theme, toolbarMode=minimal, maxUploadSize=2048
     streamlit_app.py         the whole UI. Tabs: Processing / Setup / Guide /
-                             Results / History
+                             Results / History. Header has a small inline-SVG
+                             water-drop mark (no official Polymer logo exists).
+                             render_getting_started() = 3-step checklist;
+                             render_last_result() = success panel + chime +
+                             download; render_folders() = host paths w/ copy
+                             buttons; render_footer() carries the (now small)
+                             Francesco Tarini attribution.
     i18n.py                  t() + EN/IT string table (_STRINGS); language saved
                              in /data/config/.polymer_lang
-    params_schema.py         structural param data only (names/types/defaults)
+    sound.py                 chime_data_uri(): a short success WAV built in
+                             memory, returned as a data: URI (no audio asset)
+    params_schema.py         structural param data only. OUTPUT_FORMATS =
+                             ["hdf4", "netcdf4"] — HDF is the default output
     polymer_job.py           subprocess: builds Level1/Level2, calls
                              polymer.main.run_atm_corr (v4 API). resolve_sensor(),
                              _auto_ancillary_kind() (.netrc->nasa, .cdsapirc->
@@ -110,7 +123,11 @@ docker/
     uploads.py               st.file_uploader handler: .zip → safe-extract,
                              single-file products saved as-is
     quicklook.py             list_2d_vars(), make_png(path, out, var=None);
-                             nearest-wavelength band match (±20 nm)
+                             nearest-wavelength band match (±20 nm). Used only
+                             for the optional "quick visual check" in Results —
+                             Polymer's deliverable is the corrected file, not a
+                             map. The per-variable / histogram map-builder UI was
+                             removed.
     aux_job.py               background download of the static auxdata: detached
                              `python -m polymer.get_auxdata`, state in
                              /data/output/_run/auxdata.*; start()/status()/
@@ -208,9 +225,9 @@ docker run --rm --entrypoint micromamba polymer-gui:local run -n polymer \
   python -c "import polymer.polymer_main, polymer.water; from polymer.main import run_atm_corr; print('ok')"
 ```
 
-Real end-to-end test needs the ~1 GB auxdata (Setup tab, or `cp` from
-`~/Downloads/polymer-docker-master/data/auxdata/`) **and** a real Level-1 product
-in `data/input/` **and**, for PRISMA, NASA Earthdata credentials.
+Real end-to-end test needs the auxdata (Setup tab → "Download auxiliary data",
+~190 MB verified by the manifest) **and** a real Level-1 product in `data/input/`
+**and**, for PRISMA, a NASA Earthdata *or* Copernicus CDS account.
 
 ## 7. Known issues / open items (from the code review — none block v0.1.0)
 
@@ -235,6 +252,14 @@ Priority order:
 6. Base image `mambaorg/micromamba:1.5-jammy` is pinned by minor tag, not digest.
 7. `environment.arm64.yml` is solved fresh each build — a transitive package
    could shift under it. A real `conda-lock` aarch64 lock would pin it.
+7b. **Image size ~4.6 GB is expected and near-irreducible.** Breakdown: the conda
+   env ~3.4 GB (gdal, numba/llvmlite, scipy/pandas/xarray/dask, netcdf4, h5py,
+   pyhdf, rasterio, eccodes, matplotlib, glymur, shapely, pyproj …), Ubuntu base
+   ~80 MB, runtime apt (curl/wget/tini) ~30 MB, Cython .so ~17 MB, app + Polymer
+   source ~1 MB. The multi-stage build already drops the ~250 MB C toolchain.
+   Further trims (drop matplotlib by rendering the preview with Pillow; move
+   pytest out of the runtime env) would save maybe another ~80 MB — not worth
+   the churn. gdal + the scientific stack is the floor.
 8. ~~auxdata download (Setup tab) is synchronous and uncancellable~~ — **done**:
    `aux_job.py` runs it as a detached subprocess with a Cancel button; the Setup
    tab polls (`time.sleep(2); st.rerun()`) like `render_running`. State survives

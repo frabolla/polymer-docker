@@ -94,9 +94,11 @@ Quando è pronto, il browser si apre da solo su **<http://localhost:8501>**.
    se cambi scheda.
 4. Seleziona **più prodotti insieme** per l'elaborazione in lotto — una tabella
    riepilogo mostra quali sono riuscite e un pulsante ripete solo i falliti.
-5. Sfoglia gli output nella scheda **Risultati**: scegli un file, scegli una
-   variabile (o la vista automatica RGB / clorofilla), vedi un istogramma e
-   scarica il file.
+5. Nella scheda **Risultati**: scegli un file di output e **Scaricalo**, oppure
+   copia il percorso di `data/output` dal pannello *Cartelle di lavoro* per
+   aprirlo sul tuo computer. Un "controllo visivo rapido" facoltativo mostra una
+   piccola anteprima RGB solo per confermare che la correzione è stata eseguita —
+   l'output vero è il file stesso (HDF per impostazione predefinita).
 
 ## 6. Fermare / aggiornare
 

@@ -87,6 +87,21 @@ _STRINGS: dict[str, dict[str, str]] = {
         "it": "Pacchetto Docker e interfaccia realizzati da **Francesco Tarini** "
               "([@frabolla](https://github.com/frabolla)).",
     },
+    "app.footer": {
+        "en": "Fork of Polymer by HYGEOS. Docker packaging by Francesco Tarini "
+              "(@frabolla). Polymer itself is © HYGEOS — see LICENCE.TXT.",
+        "it": "Fork di Polymer di HYGEOS. Pacchetto Docker di Francesco Tarini "
+              "(@frabolla). Polymer è © HYGEOS — vedi LICENCE.TXT.",
+    },
+    "check.auxdata": {
+        "en": "Auxiliary data downloaded",
+        "it": "Dati ausiliari scaricati",
+    },
+    "check.creds": {
+        "en": "Meteorological-data credentials entered",
+        "it": "Credenziali dati meteo inserite",
+    },
+    "check.saved_short": {"en": "saved", "it": "salvata"},
     "sidebar.language": {"en": "Language", "it": "Lingua"},
     "sidebar.version": {"en": "Version {v}", "it": "Versione {v}"},
     "sidebar.freespace": {"en": "Free space: {mb:.0f} MB", "it": "Spazio libero: {mb:.0f} MB"},
@@ -106,8 +121,44 @@ _STRINGS: dict[str, dict[str, str]] = {
     "run.blocks": {"en": "{d} / {n} blocks", "it": "{d} / {n} blocchi"},
     "run.blocks_nototal": {"en": "{d} blocks processed", "it": "{d} blocchi elaborati"},
     "run.elapsed": {"en": "Elapsed: {s} s", "it": "Trascorso: {s} s"},
+    "run.eta": {"en": "about {s} s left", "it": "circa {s} s rimanenti"},
     "run.cancel": {"en": "Cancel", "it": "Annulla"},
     "run.queued_only": {"en": "{q} job(s) queued.", "it": "{q} job in coda."},
+    "run.log": {"en": "Show detailed log", "it": "Mostra log dettagliato"},
+    "run.phase_reading": {
+        "en": "Reading the input image…", "it": "Lettura dell'immagine di input…",
+    },
+    "run.phase_meteo": {
+        "en": "Downloading meteorological data (ozone / wind / pressure)…",
+        "it": "Scaricamento dati meteo (ozono / vento / pressione)…",
+    },
+    "run.phase_starting": {
+        "en": "Preparing the output file…", "it": "Preparazione del file di output…",
+    },
+    "run.phase_processing": {
+        "en": "Applying the atmospheric correction…",
+        "it": "Applicazione della correzione atmosferica…",
+    },
+    "run.phase_download": {
+        "en": "Downloading…", "it": "Scaricamento in corso…",
+    },
+    "done.title": {
+        "en": "Atmospheric correction completed — {n} file(s) ready.",
+        "it": "Correzione atmosferica completata — {n} file pronti.",
+    },
+    "done.partial": {
+        "en": "Finished: {ok} ok, {fail} failed.",
+        "it": "Terminato: {ok} riusciti, {fail} falliti.",
+    },
+    "done.failed": {
+        "en": "The correction failed ({n} file(s)). See the message below.",
+        "it": "La correzione è fallita ({n} file). Vedi il messaggio qui sotto.",
+    },
+    "done.file": {"en": "Output: {name}", "it": "Output: {name}"},
+    "done.download": {"en": "Download", "it": "Scarica"},
+    "done.results_tab": {
+        "en": "Open in the Results tab", "it": "Apri nella scheda Risultati",
+    },
 
     # -- batch summary
     "batch.title": {"en": "Last run", "it": "Ultima elaborazione"},
@@ -142,6 +193,38 @@ _STRINGS: dict[str, dict[str, str]] = {
     "results.too_big": {
         "en": "File is {size:.0f} MB — copy it from the `data/output` folder instead.",
         "it": "File di {size:.0f} MB — copialo dalla cartella `data/output`.",
+    },
+    "results.preview_header": {
+        "en": "Quick visual check (optional)", "it": "Controllo visivo rapido (facoltativo)",
+    },
+    "results.preview_hint": {
+        "en": "A small RGB preview of the water reflectance, only to confirm the "
+              "correction ran. Polymer's real output is the file above.",
+        "it": "Una piccola anteprima RGB della riflettanza dell'acqua, solo per "
+              "confermare che la correzione è stata eseguita. L'output vero di "
+              "Polymer è il file qui sopra.",
+    },
+    "results.preview_make": {"en": "Generate preview", "it": "Genera anteprima"},
+
+    # -- working folders panel
+    "folders.header": {"en": "Working folders on your computer", "it": "Cartelle di lavoro sul tuo computer"},
+    "folders.open_hint": {
+        "en": "Copy a path and paste it into Finder (macOS) or File Explorer "
+              "(Windows) to open the folder.",
+        "it": "Copia un percorso e incollalo in Finder (macOS) o Esplora file "
+              "(Windows) per aprire la cartella.",
+    },
+    "folders.input": {"en": "Input — put your Level-1 products here", "it": "Input — metti qui i prodotti Level-1"},
+    "folders.output": {"en": "Output — corrected images appear here", "it": "Output — qui compaiono le immagini corrette"},
+    "folders.config": {"en": "Config — saved credentials and settings", "it": "Config — credenziali e impostazioni salvate"},
+    "folders.in_container": {"en": "path inside the container", "it": "percorso dentro il container"},
+    "folders.container_note": {
+        "en": "The container was started by hand, so the exact host paths are "
+              "unknown. They are the `data/input`, `data/output` and `data/config` "
+              "folders next to the launcher.",
+        "it": "Il container è stato avviato manualmente, quindi i percorsi esatti "
+              "sul computer non sono noti. Sono le cartelle `data/input`, "
+              "`data/output` e `data/config` accanto al launcher.",
     },
 
     # -- in-app guide
@@ -328,16 +411,39 @@ _STRINGS: dict[str, dict[str, str]] = {
     "config.aux_dismiss": {"en": "Dismiss", "it": "Chiudi"},
 
     # -- setup tab: credentials
+    "config.intro": {
+        "en": "Before your first run, set up two things here: **(1)** download the "
+              "auxiliary data once, and **(2)** enter the credentials for a "
+              "meteorological-data service. What you enter is saved on your "
+              "computer (in the `config` folder) and reused automatically every "
+              "time you start Polymer — you do not need to type it again.",
+        "it": "Prima della prima elaborazione, configura due cose qui: **(1)** "
+              "scarica una volta i dati ausiliari e **(2)** inserisci le "
+              "credenziali di un servizio di dati meteo. Quello che inserisci "
+              "viene salvato sul tuo computer (nella cartella `config`) e "
+              "riutilizzato automaticamente a ogni avvio di Polymer — non devi "
+              "reinserirlo.",
+    },
     "config.cred_header": {
-        "en": "Meteorological data credentials (optional)",
-        "it": "Credenziali dati meteo (facoltative)",
+        "en": "Meteorological data credentials",
+        "it": "Credenziali dati meteo",
     },
     "config.cred_text": {
-        "en": "Used to download ozone, wind and pressure **on the fly**. Without "
-              "credentials Polymer falls back to built-in climatologies.",
-        "it": "Servono per scaricare **al volo** ozono, vento e pressione. Senza "
-              "credenziali Polymer usa comunque delle climatologie interne.",
+        "en": "Used to download ozone, wind and pressure **on the fly**. "
+              "Sentinel-2/3 can fall back to built-in climatologies; **PRISMA "
+              "cannot** — it needs one of these accounts.",
+        "it": "Servono per scaricare **al volo** ozono, vento e pressione. "
+              "Sentinel-2/3 possono ripiegare su climatologie interne; **PRISMA "
+              "no** — richiede uno di questi account.",
     },
+    "config.cred_persist": {
+        "en": "Saved in `data/config/` and reused on the next launch. Use "
+              "**Remove** to clear one and enter a different account.",
+        "it": "Salvate in `data/config/` e riutilizzate al prossimo avvio. Usa "
+              "**Rimuovi** per cancellarne una e inserire un altro account.",
+    },
+    "config.saved_as": {"en": "Currently saved: {who}", "it": "Attualmente salvata: {who}"},
+    "config.not_saved": {"en": "Nothing saved yet.", "it": "Ancora nulla di salvato."},
     "config.cred_source": {"en": "Meteorological data source", "it": "Fonte dei dati meteo"},
     "config.nasa_user": {"en": "Earthdata username", "it": "Nome utente Earthdata"},
     "config.nasa_pass": {"en": "Earthdata password", "it": "Password Earthdata"},
@@ -403,6 +509,33 @@ _STRINGS: dict[str, dict[str, str]] = {
         "it": "Configurazione incompleta: servono i moduli compilati e i dati "
               "ausiliari. Apri la scheda **Configurazione**.",
     },
+    "process.checklist_header": {
+        "en": "Before you can process: 3 steps", "it": "Prima di elaborare: 3 passaggi",
+    },
+    "process.checklist_intro": {
+        "en": "Do these once. Everything is set on the **Setup** tab and then "
+              "remembered for next time.",
+        "it": "Da fare una volta sola. Si configura tutto nella scheda "
+              "**Configurazione** e poi viene ricordato.",
+    },
+    "process.go_setup": {
+        "en": "Open the **Setup** tab to finish the missing steps.",
+        "it": "Apri la scheda **Configurazione** per completare i passaggi mancanti.",
+    },
+    "process.fmt_help": {
+        "en": "HDF is Polymer's native Level-2 format. NetCDF is more portable. "
+              "The pixel values are the same.",
+        "it": "HDF è il formato Level-2 nativo di Polymer. NetCDF è più portabile. "
+              "I valori dei pixel sono identici.",
+    },
+    "process.ancillary_help": {
+        "en": "'auto' uses whatever you configured in Setup (NASA or Copernicus). "
+              "For PRISMA a real account is required.",
+        "it": "'auto' usa ciò che hai configurato in Configurazione (NASA o "
+              "Copernicus). Per PRISMA serve un account reale.",
+    },
+    "fmt.hdf4": {"en": "HDF (.hdf) — recommended", "it": "HDF (.hdf) — consigliato"},
+    "fmt.netcdf4": {"en": "NetCDF (.nc)", "it": "NetCDF (.nc)"},
     "process.no_products": {
         "en": "No products in `data/input/`. Copy your Level-1 products there "
               "(`.SEN3`, `.SAFE` folders, `.N1`, `.L1C`, `.he5` files …) and reload "

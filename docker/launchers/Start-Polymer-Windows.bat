@@ -36,6 +36,9 @@ if not exist data\auxdata    mkdir data\auxdata
 if not exist data\ancillary  mkdir data\ancillary
 if not exist data\config     mkdir data\config
 
+REM Let the interface show the folder paths as they are on this computer.
+set "POLYMER_HOST_DIR=%REPO_ROOT%\data"
+
 echo.
 echo Building / starting. The FIRST run takes 10-20 minutes.
 echo.

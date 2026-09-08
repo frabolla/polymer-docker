@@ -27,7 +27,9 @@ SENSORS = [
 # Sensors whose file-name auto-detection is NOT supported by polymer.level1.Level1
 NEEDS_EXPLICIT_SENSOR = {"PRISMA", "HICO"}
 
-OUTPUT_FORMATS = ["netcdf4", "hdf4"]
+# HDF is Polymer's native Level-2 format and the default here; NetCDF is offered
+# for portability. The interface lists the first entry as the default.
+OUTPUT_FORMATS = ["hdf4", "netcdf4"]
 
 # Codes only; descriptions come from i18n ("watermodel.<code>").
 WATER_MODELS = ["PR05", "MM01", "MM01_FOQ"]
