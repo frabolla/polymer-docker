@@ -4,8 +4,10 @@
 set -euo pipefail
 
 echo "==> Preparing data folders in /data ..."
+# METEO holds NASA GEOS-5 files (Ancillary_NASA); ERA5 holds Copernicus files
+# (Ancillary_ERA5). Both readers raise if their folder is absent.
 mkdir -p /data/input /data/output /data/auxdata/static /data/config \
-         /data/ancillary /data/ancillary/METEO || true
+         /data/ancillary /data/ancillary/METEO /data/ancillary/ERA5 || true
 chmod 700 /data/config 2>/dev/null || true
 
 # Credentials (.netrc for NASA Earthdata, .cdsapirc for Copernicus CDS) are saved

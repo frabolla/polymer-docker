@@ -90,8 +90,26 @@ def build_level1(cfg: dict):
     raise ValueError(f"Unknown sensor: {sensor!r}")
 
 
+def _auto_ancillary_kind() -> str | None:
+    """
+    Which ancillary source 'auto' means, from the files the Setup tab writes.
+
+    Never assumes NASA: a NASA Earthdata `.netrc` wins, then a Copernicus
+    `.cdsapirc` (ERA5). Nothing configured -> None (no meteo download attempted).
+    """
+    home = Path(os.environ.get("HOME", "/data/config"))
+    netrc = home / ".netrc"
+    if netrc.exists() and "urs.earthdata.nasa.gov" in netrc.read_text():
+        return "nasa"
+    if (home / ".cdsapirc").exists():
+        return "era5"
+    return None
+
+
 def build_ancillary(kind: str):
     kind = (kind or "auto").lower()
+    if kind == "auto":
+        kind = _auto_ancillary_kind() or "none"
     if kind == "none":
         return None
     if kind == "era5":
@@ -100,12 +118,7 @@ def build_ancillary(kind: str):
     if kind == "nasa":
         from polymer.ancillary import Ancillary_NASA
         return Ancillary_NASA()
-    # auto: use NASA only if the .netrc contains Earthdata credentials
-    netrc = Path(os.environ.get("HOME", "/data/config")) / ".netrc"
-    if netrc.exists() and "urs.earthdata.nasa.gov" in netrc.read_text():
-        from polymer.ancillary import Ancillary_NASA
-        return Ancillary_NASA()
-    return None
+    raise ValueError(f"Unknown ancillary source: {kind!r}")
 
 
 def build_level2(cfg: dict):
@@ -201,10 +214,28 @@ _ERROR_HINTS = [
         "enter (or correct) your Earthdata username and password, then run again.",
     ),
     (
+        ("does not exist.Please create it for hosting ERA5", "ancillary/ERA5\" does not"),
+        "The ERA5 data folder is missing inside the container. Rebuild the image "
+        "(docker compose build) — newer images create it automatically at startup.",
+    ),
+    (
+        ("licence", "not agreed to the required terms", "required licences",
+         "Terms and conditions have not been accepted"),
+        "Your Copernicus account has not accepted the ERA5 licence yet. Sign in at "
+        "cds.climate.copernicus.eu, open the 'ERA5 hourly data on single levels' "
+        "dataset, accept its terms at the bottom of the page, then run again.",
+    ),
+    (
+        ("401 Client Error", "Authorization failed", "invalid_token",
+         "Bad token", "403 Client Error"),
+        "The Copernicus CDS key was not accepted. Re-copy it from your CDS "
+        "profile page into the Setup tab, then run again.",
+    ),
+    (
         # downstream symptom when the meteo/ozone download failed
         ("polymer/ancillary.py", "polymer/ancillary_era5.py"),
         "The meteorological data (ozone / wind / pressure) could not be "
-        "downloaded. Check your NASA Earthdata account (or Copernicus CDS key) "
+        "downloaded. Check your NASA Earthdata account or Copernicus CDS key "
         "in the Setup tab — it is missing, wrong, or the service is unreachable.",
     ),
     (

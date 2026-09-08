@@ -36,29 +36,30 @@ work continues on a local branch also named `polymer-docker-container` in the
 worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
 
 **Verified working:**
-- Image builds natively on amd64 and arm64; 42-test pytest suite passes
+- Image builds natively on amd64 and arm64; 45-test pytest suite passes
   (`test_quicklook.py` is skipped where xarray/netCDF4 are absent, e.g. the lean
   CI `test` job; it runs in the image).
 - Container starts, `/_stcore/health` OK, UI loads in EN and IT, language
   persists, licence gate, all 5 tabs render, no runtime errors.
 - Credential files written `0600`, `/data/config` is `0700`.
 - `from polymer.main import run_atm_corr` imports cleanly.
-- **Real PRISMA data test** (`~/Downloads/polymer-docker-master/data/input/PRS_L1_STD_OFFL_20260704102046…he5` + its `PRS_L2C_STD_…` companion, ~2.4 GB total; also cloned into this worktree's `data/input/`):
-  `Level1_PRISMA` opens both files and initializes the product
-  (`shape (1000, 1000)`). It then needs NASA Earthdata credentials to download
-  meteo data — with a bad `.netrc` the run fails at that step with the humanised
-  message. **A full successful Polymer run has never been completed** (needs a
-  real NASA Earthdata account or Copernicus CDS key, which the user must supply
-  in the Setup tab).
+- **Full end-to-end run — SUCCEEDED** (2026-09-08, arm64, image `test-e2e`).
+  Real PRISMA pair `PRS_L1_STD_OFFL_20260704102046…he5` + `PRS_L2C_STD_…`
+  (~2.4 GB) in `data/input/`, **Copernicus CDS / ERA5** key in the Setup tab,
+  `ancillary="ERA5"`, `fmt="netcdf4"`, `multiprocessing=1`. cdsapi fetched the
+  two bracketing ERA5 hours into `data/ancillary/ERA5/`, Polymer processed 10
+  blocks in ~1 min, wrote a **46.7 MB Level-2 NetCDF**
+  (`…he5.polymer.nc`, 70 data vars, dims `height=1000 width=1000`, `Rw406…Rw977`
+  band vars). `job_runner` history row `result: ok`, `duration_s ≈ 140`.
+- **Results tab preview against that real Level-2**: `quicklook.list_2d_vars`
+  returned all 70 maps; `make_png` auto-RGB matched PRISMA bands by nearest
+  wavelength (665→Rw664, 560→Rw559, 443→Rw446) and produced a sensible water
+  RGB; `make_png(var="logchl")` produced the map+histogram. Task B confirmed on
+  real data (the old exact-name band lookup would have failed here).
 
 **NOT verified:**
-- A full atmospheric correction producing a Level-2 file.
-- The **Results tab** preview (`quicklook.list_2d_vars` / `make_png`) against a
-  **real** Level-2. `quicklook.py` is now tested against a synthetic file with
-  the exact layout `polymer/level2_nc.py` writes (dims `height`/`width`, one 2D
-  variable per band named `Rw<wl>`), and band lookup matches the nearest
-  wavelength within 20 nm so it works for hyperspectral sensors (PRISMA). Still
-  unproven on an actual product.
+- NASA Earthdata path end-to-end (only the CDS/ERA5 path has had a full run).
+  `Ancillary_NASA` + `.netrc` still only seen failing on a bad login.
 - `credentials.test_earthdata` / `test_cds` against real valid accounts (only the
   401/"bad" path was seen). They are best-effort and never block saving.
 - The Streamlit theme colours (light theme is applied; the teal primaryColor was
@@ -93,9 +94,10 @@ docker/
     params_schema.py         structural param data only (names/types/defaults)
     polymer_job.py           subprocess: builds Level1/Level2, calls
                              polymer.main.run_atm_corr (v4 API). resolve_sensor(),
-                             _preflight(), _humanize_error(). Prints
-                             "[polymer_job] BLOCKS_TOTAL n"; writes
-                             <run_id>.result.json
+                             _auto_ancillary_kind() (.netrc->nasa, .cdsapirc->
+                             era5, else none — never assumes NASA), _preflight(),
+                             _humanize_error(). Prints "[polymer_job]
+                             BLOCKS_TOTAL n"; writes <run_id>.result.json
     job_runner.py            one detached job at a time + queue; state in
                              /data/output/_run/; poll() heartbeat; cancel();
                              _prune(); failed_cfgs(); configure() for tests
@@ -145,13 +147,21 @@ VERSION                     "0.1.0" — read by app_version() (COPYd to /app/VER
 - **PRISMA needs THREE things** (`polymer/level1_prisma.py`):
   1. the L1 `PRS_L1_STD_OFFL_*.he5` **and** its L2C companion `PRS_L2C_STD_*.he5`
      in the same folder (the reader `assert`s the L2C exists);
-  2. `wget` (installed) + `/data/ancillary/METEO` (entrypoint) — the reader
-     *always* builds `Ancillary_NASA()` in `__init__`, ignoring `ancillary=None`;
-  3. a NASA Earthdata `.netrc` (or a CDS key) — the meteo download needs it,
-     there is no climatology fallback for PRISMA.
-  `polymer_job._preflight()` + the Processing tab check all three up-front
-  (explicit message, Run disabled). `resolve_sensor()` maps `PRS_L1_*` /
-  `PRS_L2C_*` → PRISMA even on "auto".
+  2. a meteo source — there is **no climatology fallback** for PRISMA. The reader
+     defaults to `Ancillary_NASA()` **only when `ancillary is None`**; pass an
+     `Ancillary_ERA5()` object and it uses ERA5. So `polymer_job` must resolve a
+     concrete source: `build_ancillary("auto")` → `_auto_ancillary_kind()` picks
+     `nasa` from a `.netrc`, else `era5` from a `.cdsapirc` (never assume NASA).
+  3. the source's folder + tooling:
+     - NASA: `wget` (installed) + `/data/ancillary/METEO` (entrypoint mkdir);
+     - ERA5: `cdsapi` (installed) + `/data/ancillary/ERA5` (entrypoint mkdir) —
+       `ERA5.__init__` raises if that dir is absent. Older images that predate
+       this mkdir fail with a misleading "could not download" message.
+  `polymer_job._preflight()` + the Processing tab check the pair + that *some*
+  credential exists (`.netrc` earthdata OR `.cdsapirc`) up-front (explicit
+  message, Run disabled). `resolve_sensor()` maps `PRS_L1_*` / `PRS_L2C_*` →
+  PRISMA even on "auto".
+  Confirmed end-to-end on 2026-09-08 via the ERA5/CDS path (see §2).
 - **Error messages**: `polymer_job._humanize_error(tb)` maps common failures
   (NASA auth, `polymer/ancillary.py` in the traceback, "Unable to detect sensor",
   missing `LUT.hdf`/auxdata, missing METEO dir, missing wget, MemoryError) to one
@@ -206,12 +216,11 @@ in `data/input/` **and**, for PRISMA, NASA Earthdata credentials.
 
 Priority order:
 
-1. **No full end-to-end run has ever succeeded** — needs data + credentials.
-   Highest-value next step: the user adds their NASA Earthdata login, then run
-   the PRISMA pair and see whether Polymer produces a Level-2 `.nc`. Then eyeball
-   the Results tab preview against that file (`quicklook.py` now matches the
-   layout `level2_nc.py` writes and is unit-tested, but a real product may still
-   surprise it).
+1. ~~No full end-to-end run has ever succeeded~~ — **done** 2026-09-08: PRISMA +
+   CDS/ERA5 produced a 46.7 MB Level-2 NetCDF and the Results-tab preview
+   rendered (see §2). Remaining gap: the **NASA Earthdata** path has never had a
+   full run; and only `multiprocessing=1` was exercised (higher values on an
+   8 GB Docker VM with a hyperspectral cube may OOM — untested).
 2. **Browser upload of multi-GB products is impractical** — Streamlit holds the
    whole file in memory; `maxUploadSize` is 2 GB. Copying into `data/input/` is
    the real path (documented). Fine as-is; do not "fix" by raising the limit

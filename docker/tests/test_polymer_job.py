@@ -52,3 +52,39 @@ def test_humanize_error_known_cases():
     assert "out of memory" in pj._humanize_error("MemoryError")
     # unknown -> echoes the last line
     assert "boom" in pj._humanize_error("Traceback...\nRuntimeError: boom")
+
+
+def test_humanize_error_era5_cases():
+    assert "ERA5 data folder" in pj._humanize_error(
+        'File ".../polymer/ancillary_era5.py", line 125\n'
+        'Exception: Directory "/data/ancillary/ERA5" does not exist.'
+        'Please create it for hosting ERA5 files.'
+    )
+    assert "licence" in pj._humanize_error(
+        "ancillary_era5.py ...\nException: required licences not accepted: Terms "
+        "and conditions have not been accepted"
+    ).lower()
+    assert "CDS key" in pj._humanize_error(
+        "ancillary_era5.py ...\nHTTPError: 401 Client Error: Unauthorized"
+    )
+
+
+def test_auto_ancillary_kind(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert pj._auto_ancillary_kind() is None
+    (tmp_path / ".cdsapirc").write_text("url: https://cds/api\nkey: abc\n")
+    assert pj._auto_ancillary_kind() == "era5"
+    (tmp_path / ".netrc").write_text(
+        "machine urs.earthdata.nasa.gov login a password b\n"
+    )
+    assert pj._auto_ancillary_kind() == "nasa"  # Earthdata wins when both exist
+
+
+def test_build_ancillary_none_and_unknown():
+    assert pj.build_ancillary("none") is None
+    try:
+        pj.build_ancillary("bogus")
+    except ValueError:
+        pass
+    else:  # pragma: no cover
+        raise AssertionError("expected ValueError for an unknown source")

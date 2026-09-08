@@ -58,7 +58,7 @@ ENV DIR_DATA=/data \
     HOME=/data/config \
     OMP_NUM_THREADS=1
 RUN mkdir -p /data/input /data/output /data/auxdata/static /data/config \
-             /data/ancillary /data/ancillary/METEO
+             /data/ancillary /data/ancillary/METEO /data/ancillary/ERA5
 
 # --- Polymer source + Cython module compilation ---
 WORKDIR /opt/polymer
