@@ -8,7 +8,7 @@ import aux_job
 
 @pytest.fixture
 def aux(tmp_path, monkeypatch):
-    aux_job.configure(tmp_path)
+    aux_job.configure(tmp_path, auxdata_dir=tmp_path / "auxdata")
     alive = {"v": True}
     started = []
 
@@ -32,6 +32,29 @@ def test_start_is_single_flight(aux):
     # a second start while one is running is refused
     assert aux.start() is False
     assert len(aux._started) == 1
+
+
+def test_clear_stale_locks(aux, tmp_path):
+    common = tmp_path / "auxdata" / "static" / "common"
+    common.mkdir(parents=True)
+    (common / "no2_climatology.hdf.lock").write_text("")
+    (common / "LUT.hdf.tmp").write_text("partial")
+    keep = common / "k_oz.csv"
+    keep.write_text("real data")
+
+    assert aux.clear_stale_locks() == 2
+    assert not (common / "no2_climatology.hdf.lock").exists()
+    assert not (common / "LUT.hdf.tmp").exists()
+    assert keep.exists()  # real files untouched
+    assert aux.clear_stale_locks() == 0  # idempotent
+
+
+def test_start_clears_locks_first(aux, tmp_path):
+    lock = tmp_path / "auxdata" / "static" / "common" / "x.hdf.lock"
+    lock.parent.mkdir(parents=True)
+    lock.write_text("")
+    assert aux.start() is True
+    assert not lock.exists()
 
 
 def test_status_reports_success(aux):

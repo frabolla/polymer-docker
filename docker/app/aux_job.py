@@ -30,15 +30,18 @@ RUN_DIR = Path("/data/output/_run")
 STATE = RUN_DIR / "auxdata.json"
 LOG = RUN_DIR / "auxdata.log"
 RESULT = RUN_DIR / "auxdata.result.json"
+AUXDATA_DIR = Path(os.environ.get("DIR_DATA", "/data")) / "auxdata"
 
 
-def configure(run_dir) -> None:
-    """Repoint all paths at `run_dir` (used by the test suite)."""
-    global RUN_DIR, STATE, LOG, RESULT
+def configure(run_dir, auxdata_dir=None) -> None:
+    """Repoint all paths (used by the test suite)."""
+    global RUN_DIR, STATE, LOG, RESULT, AUXDATA_DIR
     RUN_DIR = Path(run_dir)
     STATE = RUN_DIR / "auxdata.json"
     LOG = RUN_DIR / "auxdata.log"
     RESULT = RUN_DIR / "auxdata.result.json"
+    if auxdata_dir is not None:
+        AUXDATA_DIR = Path(auxdata_dir)
 
 
 def _read_json(p: Path, default):
@@ -73,6 +76,7 @@ def start() -> bool:
     if status()["running"]:
         return False
     RESULT.unlink(missing_ok=True)
+    clear_stale_locks()  # also cleared by the worker; do it here in case it never starts
     log_fh = open(LOG, "wb")
     try:
         proc = subprocess.Popen(
@@ -153,15 +157,46 @@ def cancel() -> None:
     RESULT.write_text(json.dumps({"rc": 130, "error": "cancelled"}))
 
 
-def _run() -> int:
-    """Worker body: run the downloader, record its exit code."""
+def clear_stale_locks() -> int:
+    """
+    Remove leftover *.lock / *.tmp files under the auxdata folder.
+
+    core's download helper guards each file with a `<file>.lock`. If a previous
+    download was killed (Cancel, container stop, Docker Desktop restart on
+    Windows) the lock is orphaned and the next attempt fails with
+    "Timeout on Lockfile ...". We are single-flight, so nothing legitimately
+    holds these when a new download starts.
+    """
+    removed = 0
+    for pattern in ("*.lock", "*.tmp"):
+        for p in AUXDATA_DIR.rglob(pattern):
+            try:
+                p.unlink()
+                removed += 1
+                print(f"[aux_job] removed stale {p.name}", flush=True)
+            except OSError:
+                pass
+    return removed
+
+
+def _download_once() -> int:
     try:
-        rc = subprocess.run(
+        return subprocess.run(
             [sys.executable, "-m", "polymer.get_auxdata"], env={**os.environ}
         ).returncode
     except Exception as exc:  # pragma: no cover - defensive
         print(f"[aux_job] could not start the downloader: {exc}", flush=True)
-        rc = 1
+        return 1
+
+
+def _run() -> int:
+    """Worker body: clear stale locks, download, retry once, record exit code."""
+    clear_stale_locks()
+    rc = _download_once()
+    if rc != 0:
+        print("[aux_job] download failed, clearing locks and retrying once", flush=True)
+        clear_stale_locks()
+        rc = _download_once()
     RESULT.write_text(json.dumps({"rc": rc}))
     return rc
 

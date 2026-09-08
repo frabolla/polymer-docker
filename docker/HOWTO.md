@@ -246,9 +246,14 @@ press **▶** on the `polymer-gui` row.
 
 Open **Docker Desktop**, then click the **gear icon ⚙ (Settings)** at the top.
 
-- **Give Polymer more memory:** **Resources** → drag the **Memory** slider to at
-  least **8 GB** → **Apply & restart**. Do this if processing stops with an
-  "out of memory" message.
+- **Adjust how much memory Docker reserves:** **Resources** → the **Memory**
+  slider. Docker Desktop reserves this much RAM from your computer while it is
+  running, *whether Polymer is busy or not* — so if the machine feels short on
+  memory, lower it (**4 GB** is enough for one image at a time). Raise it back
+  toward **8 GB** only if processing stops with an "out of memory" message.
+  The Polymer container itself uses about **250 MB** when idle.
+  On Windows you can also set this in `C:\Users\<you>\.wslconfig`:
+  `[wsl2]` on one line, `memory=4GB` on the next; then run `wsl --shutdown`.
 - **Start fresh if something is broken:** click the **bug icon 🐞 (Troubleshoot)**
   at the top → **"Clean / Purge data"** (or **"Reset to factory defaults"**).
   Then do Part 4 again (it will rebuild).

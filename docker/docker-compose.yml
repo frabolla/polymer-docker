@@ -43,7 +43,13 @@ services:
       - ../data/auxdata:/data/auxdata
       - ../data/ancillary:/data/ancillary
       - ../data/config:/data/config
-    shm_size: "2gb"
+    # Shared-memory cap for dask / numpy. 1 GB is plenty at the default
+    # 1-core setting; raise it if you process very large scenes with several
+    # cores. It is a ceiling, not a reservation — idle use is ~0.
+    shm_size: "1gb"
+    # Optional hard memory cap for the whole container. Left unset so large
+    # scenes are not OOM-killed; uncomment (e.g. 4g) to bound RAM use.
+    # mem_limit: "4g"
     restart: "no"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8501/_stcore/health"]

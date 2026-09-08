@@ -89,7 +89,15 @@ ENV DIR_DATA=/data \
     DIR_POLYMER_AUXDATA=/data/auxdata/static \
     DIR_POLYMER_ANCILLARY=/data/ancillary \
     HOME=/data/config \
-    OMP_NUM_THREADS=1
+    OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    NUMBA_NUM_THREADS=1 \
+    MALLOC_ARENA_MAX=2
+# The *_NUM_THREADS caps keep numpy's BLAS backends from spawning one thread pool
+# per CPU (Polymer parallelises with processes, not threads). MALLOC_ARENA_MAX
+# limits glibc malloc arenas, which trims resident memory for this workload.
 RUN mkdir -p /data/input /data/output /data/auxdata/static /data/config \
              /data/ancillary /data/ancillary/METEO /data/ancillary/ERA5 \
     && micromamba run -n polymer python -c "import polymer.polymer_main, polymer.water; from polymer.main import run_atm_corr; print('Polymer import OK')"

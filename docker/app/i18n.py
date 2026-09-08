@@ -456,6 +456,25 @@ _STRINGS: dict[str, dict[str, str]] = {
     "config.aux_cancelled": {"en": "Download cancelled.", "it": "Download annullato."},
     "config.aux_log": {"en": "Download log", "it": "Log del download"},
     "config.aux_dismiss": {"en": "Dismiss", "it": "Chiudi"},
+    "config.aux_always_required": {
+        "en": "These reference tables (the atmospheric-correction lookup tables) "
+              "are **always required**, for every sensor. They are not weather "
+              "data and are unrelated to the NASA / Copernicus credentials on the "
+              "next step — so this step cannot be skipped.",
+        "it": "Queste tabelle di riferimento (le lookup table della correzione "
+              "atmosferica) sono **sempre necessarie**, per ogni sensore. Non "
+              "sono dati meteo e non c'entrano con le credenziali NASA / "
+              "Copernicus del passaggio successivo — quindi non si può saltare.",
+    },
+    "config.aux_retry": {"en": "Retry the download", "it": "Riprova il download"},
+    "config.aux_retry_hint": {
+        "en": "If it stopped on a \"Timeout on Lockfile\" message, just press "
+              "Retry: it clears the leftover lock files and continues where it "
+              "left off (already-downloaded files are kept).",
+        "it": "Se si è fermato su un messaggio «Timeout on Lockfile», premi "
+              "Riprova: cancella i file di lock rimasti e riparte da dove si era "
+              "interrotto (i file già scaricati vengono mantenuti).",
+    },
 
     # -- setup tab: credentials
     "config.intro": {

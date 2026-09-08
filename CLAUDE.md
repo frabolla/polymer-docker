@@ -36,7 +36,7 @@ work continues on a local branch also named `polymer-docker-container` in the
 worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
 
 **Verified working:**
-- Image builds natively on amd64 and arm64 (multi-stage); 49-test pytest suite
+- Image builds natively on amd64 and arm64 (multi-stage); 51-test pytest suite
   passes (`test_quicklook.py` is skipped where xarray/netCDF4 are absent, e.g.
   the lean CI `test` job; it runs in the image).
 - Container starts, `/_stcore/health` OK, UI loads in EN and IT, language
@@ -76,8 +76,10 @@ docker/
                              solve the env (TARGETARCH → env file), compile
                              Cython. final: apt only ca-certificates curl wget
                              tini, COPY --from=builder the env + /opt/polymer.
-                             Saves ~250 MB (toolchain not shipped). Image ~4.6 GB
-                             — see §7 note.
+                             Image 4.04 GB (was 4.95). final ENV also caps BLAS
+                             thread pools (OPENBLAS/MKL/NUMEXPR/NUMBA_NUM_THREADS
+                             =1, matching the existing OMP=1) and sets
+                             MALLOC_ARENA_MAX=2 — idle RSS ~150 MB vs ~300.
   docker-compose.yml         service "polymer"; port 127.0.0.1:8501; binds
                              ../data/{auxdata,ancillary,config} plus
                              ${POLYMER_INPUT_DIR:-../data/input} and
@@ -86,7 +88,8 @@ docker/
                              launcher passes it via `docker compose --env-file`).
                              env POLYMER_HOST_DIR (host path of data/, set by the
                              launchers) → shown in "Working folders". shm_size
-                             2gb; healthcheck on /_stcore/health
+                             1gb (was 2gb); commented mem_limit; healthcheck on
+                             /_stcore/health
   environment.yml (repo root)  exact conda linux-64 lock (amd64) — UPSTREAM file
   docker/environment.arm64.yml version-floor spec for aarch64, solved fresh;
                              keep in sync with pyproject.toml [tool.pixi.deps]
@@ -145,7 +148,12 @@ docker/
     aux_job.py               background download of the static auxdata: detached
                              `python -m polymer.get_auxdata`, state in
                              /data/output/_run/auxdata.*; start()/status()/
-                             cancel()/clear(); worker mode `aux_job.py --run`
+                             cancel()/clear(); worker mode `aux_job.py --run`.
+                             clear_stale_locks() deletes orphaned *.lock / *.tmp
+                             under /data/auxdata before each attempt (a killed
+                             download leaves core's LockFile behind → the next
+                             run otherwise dies with "Timeout on Lockfile"); the
+                             worker also retries once after cleaning.
   launchers/
     Start-Polymer-macOS-Linux.command / Start-Polymer-Windows.bat
   README_DOCKER.md / .it.md   reference docs (EN/IT)
@@ -268,19 +276,22 @@ Priority order:
 6. Base image `mambaorg/micromamba:1.5-jammy` is pinned by minor tag, not digest.
 7. `environment.arm64.yml` is solved fresh each build — a transitive package
    could shift under it. A real `conda-lock` aarch64 lock would pin it.
-7b. **Image size ~4.6 GB is expected and near-irreducible.** Breakdown: the conda
-   env ~3.4 GB (gdal, numba/llvmlite, scipy/pandas/xarray/dask, netcdf4, h5py,
+7b. **Image size ~4.0 GB is expected and near-irreducible.** Breakdown: the conda
+   env ~3.0 GB (gdal, numba/llvmlite, scipy/pandas/xarray/dask, netcdf4, h5py,
    pyhdf, rasterio, eccodes, matplotlib, glymur, shapely, pyproj …), Ubuntu base
-   ~80 MB, runtime apt (curl/wget/tini) ~30 MB, Cython .so ~17 MB, app + Polymer
-   source ~1 MB. The multi-stage build already drops the ~250 MB C toolchain.
-   Further trims (drop matplotlib by rendering the preview with Pillow; move
-   pytest out of the runtime env) would save maybe another ~80 MB — not worth
-   the churn. gdal + the scientific stack is the floor.
+   ~80 MB, runtime apt (curl/wget/tini) ~30 MB, Cython .so ~17 MB. gdal + the
+   scientific stack is the floor. **RAM**: the container idles ~150 MB; the ~6 GB
+   a Windows user sees is the WSL2/Docker-Desktop VM *reservation*, tunable in
+   Docker Desktop → Resources → Memory or `%UserProfile%\.wslconfig`
+   (`[wsl2]` / `memory=4GB`). Documented in HOWTO Part 8.
 8. ~~auxdata download (Setup tab) is synchronous and uncancellable~~ — **done**:
-   `aux_job.py` runs it as a detached subprocess with a Cancel button; the Setup
-   tab polls (`time.sleep(2); st.rerun()`) like `render_running`. State survives
-   reruns/tab switches. Still single-flight and still synchronous *inside* that
-   worker (no resumable/partial download).
+   `aux_job.py` detached subprocess + Cancel; the Setup tab polls like
+   `render_running`. Single-flight. Not resumable *inside* one run, but it skips
+   files already on disk, `clear_stale_locks()` clears orphaned `.lock`/`.tmp`
+   first, and the worker retries once — so a killed download (common on Windows)
+   recovers on the next "Retry". If `verify_auxdata()` passes the section
+   early-returns (no re-download). The static data is mandatory — no skip button
+   (it is the atm-correction LUTs, unrelated to the meteo credentials).
 9. macOS bind-mount directory perms may not honour `chmod 700` on `data/config`
    (the credential *files* get 0600, which is what matters).
 10. `_finalize` `duration_s` is wall-clock; for a job orphaned by a container

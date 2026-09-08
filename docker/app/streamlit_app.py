@@ -210,7 +210,12 @@ def _workdirs_dialog() -> None:
 
 
 def render_folders(context: str = "all") -> None:
-    """Show the on-disk locations of the work folders, with copy buttons."""
+    """
+    Show the on-disk locations of the work folders, with copy buttons.
+
+    `context` also disambiguates widget keys: this can be rendered several times
+    in one script run (Setup tab + Results tab + last-result panel).
+    """
     dirs = status.load_workdirs()
     have_host = bool(dirs["input"])
     with st.expander(i18n.t("folders.header"), expanded=False):
@@ -227,10 +232,12 @@ def render_folders(context: str = "all") -> None:
 
         if not have_host:
             st.caption(i18n.t("folders.container_note"))
-        else:
-            if dirs["custom"]:
-                st.caption(i18n.t("folders.custom_active"))
-            if st.button(i18n.t("folders.change_button")):
+        elif dirs["custom"]:
+            st.caption(i18n.t("folders.custom_active"))
+
+        # The "change folders" action lives on the Setup / first-run view only.
+        if have_host and context == "all":
+            if st.button(i18n.t("folders.change_button"), key="chg_folders"):
                 _workdirs_dialog()
 
 
@@ -238,11 +245,13 @@ def render_folders(context: str = "all") -> None:
 def render_auxdata_section() -> None:
     st.subheader(i18n.t("config.aux_header"))
     st.write(i18n.t("config.aux_text"))
+    st.caption(i18n.t("config.aux_always_required"))
 
     ok_aux, problems = status.verify_auxdata()
     if ok_aux:
         st.success(i18n.t("config.aux_present", size=status.auxdata_size_mb()))
-    elif problems and status.auxdata_size_mb() > 0:
+        return  # nothing to download; the button below is only for the missing case
+    if problems and status.auxdata_size_mb() > 0:
         st.warning("\n".join("- " + p for p in problems))
 
     free = status.free_space_mb()
@@ -263,25 +272,24 @@ def render_auxdata_section() -> None:
         st.rerun()
         return
 
+    # A download finished but the required files are still not all there.
     if aux["rc"] is not None:
-        if aux["rc"] == 0 and ok_aux:
-            st.success(i18n.t("config.aux_ok"))
-        elif aux["rc"] == 130:
+        if aux["rc"] == 130:
             st.warning(i18n.t("config.aux_cancelled"))
         else:
-            st.error(
-                "\n".join(
-                    [i18n.t("config.aux_fail", rc=aux["rc"])]
-                    + ["- " + p for p in problems]
-                )
-            )
+            st.error("\n".join(
+                [i18n.t("config.aux_fail", rc=aux["rc"])] + ["- " + p for p in problems]
+            ))
+            st.info(i18n.t("config.aux_retry_hint"))
         if aux["tail"]:
             with st.expander(i18n.t("config.aux_log")):
                 st.code(aux["tail"], language="text")
         if st.button(i18n.t("config.aux_dismiss")):
             aux_job.clear()
             st.rerun()
-    if st.button(i18n.t("config.aux_button"), type="primary", disabled=free < 500):
+
+    label = i18n.t("config.aux_retry") if aux["rc"] not in (None, 130) else i18n.t("config.aux_button")
+    if st.button(label, type="primary", disabled=free < 500):
         if aux_job.start():
             st.rerun()
 
