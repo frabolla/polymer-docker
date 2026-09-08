@@ -166,8 +166,13 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Docker packaging: user data (input products, results, downloaded auxdata, credentials)
-/data/
+# Docker packaging: the data/ folder holds the user's own files (input products,
+# results, downloaded auxdata, credentials). Ignore the CONTENTS but keep the
+# empty folder skeleton + its README so they exist after a plain download.
+/data/**
+!/data/**/
+!/data/**/.gitkeep
+!/data/README.md
 
 # macOS Finder
 .DS_Store

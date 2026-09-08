@@ -320,7 +320,11 @@ Priority order:
   `/Users/francesco/ClaudeCode/polymer-docker`.
 - Do NOT open PRs against `upstream` (hygeos/polymer) — PRs #26/#27 there were
   closed on purpose.
-- `data/` is git-ignored (`.DS_Store` too).
+- `data/` **contents** are git-ignored, but the folder skeleton is tracked:
+  `data/README.md` + `data/{input,output,auxdata,ancillary,config}/.gitkeep` are
+  committed so a plain ZIP download has the folders. `.gitignore` does this with
+  `/data/**` + `!/data/**/` + `!/data/**/.gitkeep` + `!/data/README.md`. Never
+  `git add` real data/credentials. `.DS_Store` is git-ignored too.
 - This worktree: `.claude/worktrees/polymer-docker-container-2c853f`. Its `data/`
   currently holds the real PRISMA test pair (CoW clones, ~0 disk) and a cloned
   `data/auxdata` — kept for the next session's end-to-end test.
