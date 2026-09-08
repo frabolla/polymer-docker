@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat as _stat
 import time
 from datetime import datetime
 from pathlib import Path
@@ -769,11 +770,21 @@ def tab_guide() -> None:
 def _output_files() -> list[Path]:
     if not OUTPUT_DIR.exists():
         return []
-    files = [
-        p for p in OUTPUT_DIR.iterdir()
-        if p.is_file() and p.suffix in (".nc", ".hdf") and not p.name.startswith("_")
-    ]
-    return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)
+    out: list[tuple[float, Path]] = []
+    try:
+        entries = list(OUTPUT_DIR.iterdir())
+    except OSError:
+        return []
+    for p in entries:
+        if p.suffix not in (".nc", ".hdf") or p.name.startswith("_"):
+            continue
+        try:
+            st_ = p.stat()
+        except OSError:
+            continue  # a job may be writing/replacing files right now
+        if _stat.S_ISREG(st_.st_mode):
+            out.append((st_.st_mtime, p))
+    return [p for _, p in sorted(out, reverse=True)]
 
 
 @st.cache_data(show_spinner=False, max_entries=2)

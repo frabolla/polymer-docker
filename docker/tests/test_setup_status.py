@@ -38,6 +38,30 @@ def test_free_space_positive(tmp_path):
     assert status.free_space_mb(tmp_path) > 0
 
 
+def _flaky_stat(monkeypatch, doomed: str):
+    """Make Path.stat raise FileNotFoundError for one file name (a mid-scan race)."""
+    orig = status.Path.stat
+
+    def stat(self, *a, **k):
+        if self.name == doomed:
+            raise FileNotFoundError
+        return orig(self, *a, **k)
+
+    monkeypatch.setattr(status.Path, "stat", stat)
+
+
+def test_auxdata_size_tolerates_vanishing_files(aux, monkeypatch):
+    """A concurrent download renaming temp files must not crash the size scan."""
+    _flaky_stat(monkeypatch, "no2_climatology.hdf")
+    assert status.auxdata_size_mb() > 0  # counted the rest, skipped the racer
+
+
+def test_verify_auxdata_tolerates_stat_errors(aux, monkeypatch):
+    _flaky_stat(monkeypatch, "LUT.hdf")
+    ok, problems = status.verify_auxdata()
+    assert not ok and any("LUT.hdf" in p for p in problems)  # "missing", no crash
+
+
 def test_list_input_products_includes_granules(tmp_path, monkeypatch):
     monkeypatch.setattr(status, "INPUT_DIR", tmp_path)
     (tmp_path / "S3A_OL_1.SEN3").mkdir()

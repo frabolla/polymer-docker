@@ -43,15 +43,20 @@ def verify_auxdata() -> tuple[bool, list[str]]:
     Check the required auxiliary files exist and are not obviously truncated.
 
     Returns (ok, problems). `problems` lists human-readable issues; empty when ok.
+    Tolerant of a file disappearing mid-check (a concurrent download renaming
+    its temp file): that just reads as "missing" this time round.
     """
     problems: list[str] = []
     for rel, min_size in AUXDATA_REQUIRED:
         p = AUXDATA_DIR / rel
-        if not p.exists():
+        try:
+            size = p.stat().st_size
+        except OSError:
             problems.append(f"missing: {rel}")
-        elif p.stat().st_size < min_size:
+            continue
+        if size < min_size:
             problems.append(
-                f"too small: {rel} ({p.stat().st_size} B < {min_size} B) — "
+                f"too small: {rel} ({size} B < {min_size} B) — "
                 "download likely incomplete"
             )
     return (not problems), problems
@@ -62,9 +67,22 @@ def auxdata_present() -> bool:
 
 
 def auxdata_size_mb() -> float:
+    """
+    Total size of the auxdata folder, in MB.
+
+    Runs while the download is writing/renaming files (the Setup panel calls it
+    every ~2 s), so every stat() is guarded: a file that vanishes between
+    rglob() yielding it and stat() is simply skipped.
+    """
     if not AUXDATA_DIR.exists():
         return 0.0
-    total = sum(f.stat().st_size for f in AUXDATA_DIR.rglob("*") if f.is_file())
+    total = 0
+    for f in AUXDATA_DIR.rglob("*"):
+        try:
+            if f.is_file():
+                total += f.stat().st_size
+        except OSError:
+            continue
     return total / (1024 * 1024)
 
 
