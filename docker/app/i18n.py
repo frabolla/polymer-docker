@@ -467,6 +467,22 @@ _STRINGS: dict[str, dict[str, str]] = {
               "Copernicus del passaggio successivo — quindi non si può saltare.",
     },
     "config.aux_retry": {"en": "Retry the download", "it": "Riprova il download"},
+    "config.aux_dns": {
+        "en": "The container cannot look up internet addresses (DNS): "
+              "`download.hygeos.com` does not resolve. This is a network problem "
+              "outside Polymer — usually a **VPN** that must be disconnected, or "
+              "a network with its own **DNS server** (set it in "
+              "`docker/docker-compose.yml`, the `dns:` lines, then restart with "
+              "the launcher). Restarting Docker Desktop (right-click the whale "
+              "icon → Restart) also often fixes it.",
+        "it": "Il container non riesce a risolvere gli indirizzi internet (DNS): "
+              "`download.hygeos.com` non si risolve. È un problema di rete "
+              "esterno a Polymer — di solito una **VPN** da disconnettere, o una "
+              "rete con un proprio **server DNS** (impostalo in "
+              "`docker/docker-compose.yml`, le righe `dns:`, poi riavvia dal "
+              "launcher). Anche riavviare Docker Desktop (tasto destro "
+              "sull'icona della balena → Restart) spesso risolve.",
+    },
     "config.aux_retry_hint": {
         "en": "If it stopped on a \"Timeout on Lockfile\" message, just press "
               "Retry: it clears the leftover lock files and continues where it "

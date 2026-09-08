@@ -115,6 +115,7 @@ def status() -> dict:
         return {
             "running": False,
             "rc": (res or {}).get("rc"),
+            "error": (res or {}).get("error", ""),
             "started": "",
             "elapsed_s": 0,
             "tail": _tail(),
@@ -128,6 +129,7 @@ def status() -> dict:
     return {
         "running": running,
         "rc": rc,
+        "error": (res or {}).get("error", ""),
         "started": s.get("started", ""),
         "elapsed_s": round(time.time() - s.get("started_ts", time.time())),
         "tail": _tail(),
@@ -179,6 +181,20 @@ def clear_stale_locks() -> int:
     return removed
 
 
+# The worker has no i18n; it writes a short reason code that the UI translates.
+_DOWNLOAD_HOST = "download.hygeos.com"
+
+
+def _dns_ok(host: str = _DOWNLOAD_HOST) -> bool:
+    import socket
+
+    try:
+        socket.getaddrinfo(host, 443)
+        return True
+    except OSError:
+        return False
+
+
 def _download_once() -> int:
     try:
         return subprocess.run(
@@ -190,14 +206,21 @@ def _download_once() -> int:
 
 
 def _run() -> int:
-    """Worker body: clear stale locks, download, retry once, record exit code."""
+    """Worker body: DNS check, clear stale locks, download, retry once."""
+    if not _dns_ok():
+        print(f"[aux_job] ERROR: cannot resolve {_DOWNLOAD_HOST} (DNS)", flush=True)
+        RESULT.write_text(json.dumps({"rc": 1, "error": "dns"}))
+        return 1
+
     clear_stale_locks()
     rc = _download_once()
     if rc != 0:
         print("[aux_job] download failed, clearing locks and retrying once", flush=True)
         clear_stale_locks()
         rc = _download_once()
-    RESULT.write_text(json.dumps({"rc": rc}))
+
+    error = "" if rc == 0 else ("dns" if not _dns_ok() else "incomplete")
+    RESULT.write_text(json.dumps({"rc": rc, "error": error}))
     return rc
 
 

@@ -29,6 +29,15 @@ services:
       # Host path of the folder that holds data/ (set by the launchers). Lets the
       # interface show where input/output/config are on your computer.
       POLYMER_HOST_DIR: ${POLYMER_HOST_DIR:-}
+    # Public DNS resolvers for the container. On Windows/WSL 2 the automatic DNS
+    # is often broken when a VPN is on or the network uses a custom resolver, and
+    # downloads then fail with "Name or service not known". Every host Polymer
+    # contacts (download.hygeos.com, Docker Hub, the NASA / Copernicus servers)
+    # is public, so forcing public DNS is safe. If your network only allows its
+    # own DNS server, replace the two lines below with its address.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     ports:
       # Bound to localhost only: the interface is NOT exposed to the local
       # network. Change the left-hand number (e.g. 127.0.0.1:8502:8501) if the

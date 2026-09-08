@@ -87,8 +87,11 @@ docker/
                              "change folders" dialog writes config/dirs.env; the
                              launcher passes it via `docker compose --env-file`).
                              env POLYMER_HOST_DIR (host path of data/, set by the
-                             launchers) → shown in "Working folders". shm_size
-                             1gb (was 2gb); commented mem_limit; healthcheck on
+                             launchers) → shown in "Working folders". dns:
+                             [8.8.8.8, 1.1.1.1] (WSL2/VPN often breaks the
+                             container's DNS → "Name or service not known"; all
+                             hosts Polymer needs are public). shm_size 1gb (was
+                             2gb); commented mem_limit; healthcheck on
                              /_stcore/health
   environment.yml (repo root)  exact conda linux-64 lock (amd64) — UPSTREAM file
   docker/environment.arm64.yml version-floor spec for aarch64, solved fresh;
@@ -153,7 +156,10 @@ docker/
                              under /data/auxdata before each attempt (a killed
                              download leaves core's LockFile behind → the next
                              run otherwise dies with "Timeout on Lockfile"); the
-                             worker also retries once after cleaning.
+                             worker also retries once. _dns_ok() checks
+                             download.hygeos.com resolves before downloading;
+                             result.json carries error="dns"|"incomplete"|"" and
+                             the UI translates it (config.aux_dns).
   launchers/
     Start-Polymer-macOS-Linux.command / Start-Polymer-Windows.bat
        Pre-pull `mambaorg/micromamba:1.5-jammy` (retry ×3) before the build —

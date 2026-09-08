@@ -274,8 +274,11 @@ def render_auxdata_section() -> None:
 
     # A download finished but the required files are still not all there.
     if aux["rc"] is not None:
+        reason = aux.get("error", "")
         if aux["rc"] == 130:
             st.warning(i18n.t("config.aux_cancelled"))
+        elif reason == "dns":
+            st.error(i18n.t("config.aux_dns"))
         else:
             st.error("\n".join(
                 [i18n.t("config.aux_fail", rc=aux["rc"])] + ["- " + p for p in problems]

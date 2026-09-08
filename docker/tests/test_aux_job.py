@@ -57,6 +57,33 @@ def test_start_clears_locks_first(aux, tmp_path):
     assert not lock.exists()
 
 
+def test_run_fails_fast_on_dns(aux, monkeypatch):
+    monkeypatch.setattr(aux, "_dns_ok", lambda *a, **k: False)
+    called = []
+    monkeypatch.setattr(aux, "_download_once", lambda: called.append(1) or 0)
+    rc = aux._run()
+    assert rc == 1 and not called  # never attempted the download
+    res = json.loads(aux.RESULT.read_text())
+    assert res["rc"] == 1 and res["error"] == "dns"
+
+
+def test_run_records_reason_on_incomplete(aux, monkeypatch):
+    monkeypatch.setattr(aux, "_dns_ok", lambda *a, **k: True)
+    monkeypatch.setattr(aux, "_download_once", lambda: 1)  # keeps failing
+    monkeypatch.setattr(aux, "clear_stale_locks", lambda: 0)
+    assert aux._run() == 1
+    assert json.loads(aux.RESULT.read_text())["error"] == "incomplete"
+
+
+def test_run_ok_clears_error(aux, monkeypatch):
+    monkeypatch.setattr(aux, "_dns_ok", lambda *a, **k: True)
+    monkeypatch.setattr(aux, "_download_once", lambda: 0)
+    monkeypatch.setattr(aux, "clear_stale_locks", lambda: 0)
+    assert aux._run() == 0
+    res = json.loads(aux.RESULT.read_text())
+    assert res["rc"] == 0 and res["error"] == ""
+
+
 def test_status_reports_success(aux):
     aux.start()
     aux.RESULT.write_text(json.dumps({"rc": 0}))
@@ -88,6 +115,7 @@ def test_clear_forgets_last_run(aux):
     assert aux.status() == {
         "running": False,
         "rc": None,
+        "error": "",
         "started": "",
         "elapsed_s": 0,
         "tail": "",
