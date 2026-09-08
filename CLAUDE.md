@@ -36,7 +36,9 @@ work continues on a local branch also named `polymer-docker-container` in the
 worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
 
 **Verified working:**
-- Image builds natively on amd64 and arm64; 30-test pytest suite passes.
+- Image builds natively on amd64 and arm64; 42-test pytest suite passes
+  (`test_quicklook.py` is skipped where xarray/netCDF4 are absent, e.g. the lean
+  CI `test` job; it runs in the image).
 - Container starts, `/_stcore/health` OK, UI loads in EN and IT, language
   persists, licence gate, all 5 tabs render, no runtime errors.
 - Credential files written `0600`, `/data/config` is `0700`.
@@ -52,7 +54,11 @@ worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
 **NOT verified:**
 - A full atmospheric correction producing a Level-2 file.
 - The **Results tab** preview (`quicklook.list_2d_vars` / `make_png`) against a
-  real Level-2 — the dimension-name heuristic (`_SPATIAL_DIMS`) is a guess.
+  **real** Level-2. `quicklook.py` is now tested against a synthetic file with
+  the exact layout `polymer/level2_nc.py` writes (dims `height`/`width`, one 2D
+  variable per band named `Rw<wl>`), and band lookup matches the nearest
+  wavelength within 20 nm so it works for hyperspectral sensors (PRISMA). Still
+  unproven on an actual product.
 - `credentials.test_earthdata` / `test_cds` against real valid accounts (only the
   401/"bad" path was seen). They are best-effort and never block saving.
 - The Streamlit theme colours (light theme is applied; the teal primaryColor was
@@ -101,7 +107,12 @@ docker/
                              test_earthdata()/test_cds() best-effort HTTP checks
     uploads.py               st.file_uploader handler: .zip → safe-extract,
                              single-file products saved as-is
-    quicklook.py             list_2d_vars(), make_png(path, out, var=None)
+    quicklook.py             list_2d_vars(), make_png(path, out, var=None);
+                             nearest-wavelength band match (±20 nm)
+    aux_job.py               background download of the static auxdata: detached
+                             `python -m polymer.get_auxdata`, state in
+                             /data/output/_run/auxdata.*; start()/status()/
+                             cancel()/clear(); worker mode `aux_job.py --run`
   launchers/
     Start-Polymer-macOS-Linux.command / Start-Polymer-Windows.bat
   README_DOCKER.md / .it.md   reference docs (EN/IT)
@@ -197,9 +208,10 @@ Priority order:
 
 1. **No full end-to-end run has ever succeeded** — needs data + credentials.
    Highest-value next step: the user adds their NASA Earthdata login, then run
-   the PRISMA pair and see whether Polymer produces a Level-2 `.nc`. Then verify
-   the Results tab preview against that file (may need to fix `_SPATIAL_DIMS` in
-   `quicklook.py` if the dims are named differently).
+   the PRISMA pair and see whether Polymer produces a Level-2 `.nc`. Then eyeball
+   the Results tab preview against that file (`quicklook.py` now matches the
+   layout `level2_nc.py` writes and is unit-tested, but a real product may still
+   surprise it).
 2. **Browser upload of multi-GB products is impractical** — Streamlit holds the
    whole file in memory; `maxUploadSize` is 2 GB. Copying into `data/input/` is
    the real path (documented). Fine as-is; do not "fix" by raising the limit
@@ -214,8 +226,11 @@ Priority order:
 6. Base image `mambaorg/micromamba:1.5-jammy` is pinned by minor tag, not digest.
 7. `environment.arm64.yml` is solved fresh each build — a transitive package
    could shift under it. A real `conda-lock` aarch64 lock would pin it.
-8. auxdata download (Setup tab) is synchronous and uncancellable — a stalled
-   download freezes that Streamlit session.
+8. ~~auxdata download (Setup tab) is synchronous and uncancellable~~ — **done**:
+   `aux_job.py` runs it as a detached subprocess with a Cancel button; the Setup
+   tab polls (`time.sleep(2); st.rerun()`) like `render_running`. State survives
+   reruns/tab switches. Still single-flight and still synchronous *inside* that
+   worker (no resumable/partial download).
 9. macOS bind-mount directory perms may not honour `chmod 700` on `data/config`
    (the credential *files* get 0600, which is what matters).
 10. `_finalize` `duration_s` is wall-clock; for a job orphaned by a container

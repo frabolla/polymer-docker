@@ -10,14 +10,13 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
-import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
 
+import aux_job
 import credentials as cred
 import i18n
 import job_runner
@@ -61,27 +60,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-
-# --------------------------------------------------------------------------- util
-def stream_command(cmd: list[str], env: dict | None = None) -> int:
-    """Run `cmd`, mirror stdout/stderr into an on-screen box, return the exit code."""
-    box = st.empty()
-    lines: list[str] = []
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        env={**os.environ, **(env or {})},
-    )
-    assert proc.stdout is not None
-    for line in proc.stdout:
-        lines.append(line.rstrip())
-        box.code("\n".join(lines[-400:]), language="text")
-    proc.wait()
-    return proc.returncode
 
 
 # --------------------------------------------------------------------- language
@@ -182,15 +160,42 @@ def tab_config() -> None:
     if free < 2000:
         st.warning(i18n.t("config.low_disk", mb=free))
 
-    if st.button(i18n.t("config.aux_button"), type="primary", disabled=free < 500):
-        rc = stream_command([sys.executable, "-m", "polymer.get_auxdata"])
-        ok_after, problems_after = status.verify_auxdata()
-        if rc == 0 and ok_after:
-            st.success(i18n.t("config.aux_ok"))
-        elif rc == 0 and not ok_after:
-            st.error("\n".join([i18n.t("config.aux_fail", rc=rc)] + ["- " + p for p in problems_after]))
-        else:
-            st.error(i18n.t("config.aux_fail", rc=rc))
+    aux = aux_job.status()
+    if aux["running"]:
+        # The download runs detached; poll and redraw while it works.
+        st.info(i18n.t("config.aux_running", s=aux["elapsed_s"]))
+        if aux["tail"]:
+            st.code(aux["tail"], language="text")
+        if st.button(i18n.t("config.aux_cancel")):
+            aux_job.cancel()
+            st.rerun()
+        time.sleep(2)
+        st.rerun()
+    else:
+        if aux["rc"] is not None:  # a download finished since last render
+            if aux["rc"] == 0 and ok_aux:
+                st.success(i18n.t("config.aux_ok"))
+            elif aux["rc"] == 130:
+                st.warning(i18n.t("config.aux_cancelled"))
+            else:
+                st.error(
+                    "\n".join(
+                        [i18n.t("config.aux_fail", rc=aux["rc"])]
+                        + ["- " + p for p in problems]
+                    )
+                )
+            if aux["tail"]:
+                with st.expander(i18n.t("config.aux_log")):
+                    st.code(aux["tail"], language="text")
+            if st.button(i18n.t("config.aux_dismiss")):
+                aux_job.clear()
+                st.rerun()
+
+        if st.button(
+            i18n.t("config.aux_button"), type="primary", disabled=free < 500
+        ):
+            if aux_job.start():
+                st.rerun()
 
     st.divider()
     st.subheader(i18n.t("config.cred_header"))

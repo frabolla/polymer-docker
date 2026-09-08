@@ -316,6 +316,16 @@ _STRINGS: dict[str, dict[str, str]] = {
         "en": "Download failed (code {rc}). Check your connection and try again.",
         "it": "Download fallito (codice {rc}). Controlla la connessione e riprova.",
     },
+    "config.aux_running": {
+        "en": "Downloading auxiliary data… ({s} s). It runs in the background — "
+              "you can switch tabs; this panel updates on its own.",
+        "it": "Download dei dati ausiliari in corso… ({s} s). Procede in "
+              "background: puoi cambiare scheda, questo pannello si aggiorna da solo.",
+    },
+    "config.aux_cancel": {"en": "Cancel download", "it": "Annulla download"},
+    "config.aux_cancelled": {"en": "Download cancelled.", "it": "Download annullato."},
+    "config.aux_log": {"en": "Download log", "it": "Log del download"},
+    "config.aux_dismiss": {"en": "Dismiss", "it": "Chiudi"},
 
     # -- setup tab: credentials
     "config.cred_header": {
