@@ -48,10 +48,51 @@ if [ -f data/config/dirs.env ]; then
   echo "Using custom input/output folders (data/config/dirs.env)."
 fi
 
+# Pre-download the base image. BuildKit only allows ~10 s to reach Docker Hub
+# and fails the whole build on a slow network ("load metadata for
+# docker.io/mambaorg/micromamba ..."). `docker pull` waits longer and retries.
+echo
+echo "Checking the base image download (needs internet)..."
+set +e
+pull_ok=0
+for attempt in 1 2 3; do
+  if docker pull mambaorg/micromamba:1.5-jammy; then pull_ok=1; break; fi
+  echo "  Attempt $attempt failed. Waiting 15 s and retrying..."
+  sleep 15
+done
+if [ "$pull_ok" -ne 1 ]; then
+  echo
+  echo 'Could not download the base image "mambaorg/micromamba:1.5-jammy".'
+  echo "This is almost always a temporary network problem:"
+  echo "  1. Make sure this computer is online."
+  echo "  2. If you use a VPN or a company proxy, disconnect it (or allow"
+  echo "     access to hub.docker.com / registry-1.docker.io), then retry."
+  echo "  3. Open Docker Desktop, wait until it shows 'Engine running'."
+  echo "  4. Wait a minute and double-click this launcher again."
+  echo
+  read -r -p "Press Enter to close." _
+  exit 1
+fi
+
 echo
 echo "Building / starting. The FIRST run takes 10-20 minutes."
 echo
-docker compose $COMPOSE_ENV -f docker/docker-compose.yml up -d --build
+build_ok=0
+for attempt in 1 2; do
+  if docker compose $COMPOSE_ENV -f docker/docker-compose.yml up -d --build; then build_ok=1; break; fi
+  echo
+  echo "That attempt failed. Waiting 15 s and retrying once..."
+  sleep 15
+done
+if [ "$build_ok" -ne 1 ]; then
+  echo
+  echo "Startup failed. Check the messages above. If it mentions 'load metadata'"
+  echo "or a network / TLS error, see the network steps printed earlier."
+  echo
+  read -r -p "Press Enter to close." _
+  exit 1
+fi
+set -e
 
 echo
 echo "Waiting for the interface to be ready..."

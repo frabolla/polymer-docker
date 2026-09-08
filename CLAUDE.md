@@ -156,6 +156,12 @@ docker/
                              worker also retries once after cleaning.
   launchers/
     Start-Polymer-macOS-Linux.command / Start-Polymer-Windows.bat
+       Pre-pull `mambaorg/micromamba:1.5-jammy` (retry ×3) before the build —
+       BuildKit's `load metadata` step gives Docker Hub only ~10 s and fails the
+       whole build on a slow/blocked network; `docker pull` retries and warns
+       about VPN/proxy. The build itself is retried once. Also export
+       POLYMER_HOST_DIR and, if data/config/dirs.env exists, add
+       `--env-file data/config/dirs.env`.
   README_DOCKER.md / .it.md   reference docs (EN/IT)
   HOWTO.md / .it.md           click-by-click first-Docker-user guide (EN/IT)
   tests/                      pytest suite (no Docker needed) — CI `test` job

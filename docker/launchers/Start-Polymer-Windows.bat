@@ -46,16 +46,53 @@ if exist data\config\dirs.env (
   echo Using custom input/output folders ^(data\config\dirs.env^).
 )
 
+REM Pre-download the base image. BuildKit only allows 10 s to reach Docker Hub
+REM and fails the whole build on a slow network ("load metadata for
+REM docker.io/mambaorg/micromamba ..."). `docker pull` waits longer and retries.
+echo.
+echo Checking the base image download (needs internet)...
+set /a _p=0
+:pullloop
+set /a _p+=1
+docker pull mambaorg/micromamba:1.5-jammy
+if not errorlevel 1 goto pulldone
+if %_p% geq 3 goto pullfailed
+echo   Attempt %_p% failed. Waiting 15 seconds and retrying...
+timeout /t 15 /nobreak >nul
+goto pullloop
+:pullfailed
+echo.
+echo Could not download the base image "mambaorg/micromamba:1.5-jammy".
+echo This is almost always a temporary network problem:
+echo   1. Make sure this computer is online.
+echo   2. If you use a VPN or a company proxy, disconnect it (or allow
+echo      access to hub.docker.com / registry-1.docker.io), then retry.
+echo   3. Open Docker Desktop, wait until it shows "Engine running".
+echo   4. Wait a minute and double-click this launcher again.
+pause
+exit /b 1
+:pulldone
+
 echo.
 echo Building / starting. The FIRST run takes 10-20 minutes.
 echo.
+set /a _b=0
+:buildloop
+set /a _b+=1
 docker compose %COMPOSE_ENV% -f docker/docker-compose.yml up -d --build
-if errorlevel 1 (
-  echo.
-  echo Startup failed. Check the messages above.
-  pause
-  exit /b 1
-)
+if not errorlevel 1 goto builddone
+if %_b% geq 2 goto buildfailed
+echo.
+echo That attempt failed. Waiting 15 seconds and retrying once...
+timeout /t 15 /nobreak >nul
+goto buildloop
+:buildfailed
+echo.
+echo Startup failed. Check the messages above. If it mentions "load metadata"
+echo or a network / TLS error, see the network steps printed earlier.
+pause
+exit /b 1
+:builddone
 
 echo.
 echo Waiting for the interface to be ready...
