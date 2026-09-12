@@ -59,6 +59,19 @@ worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
   wavelength (665→Rw664, 560→Rw559, 443→Rw446) and produced a sensible water
   RGB; `make_png(var="logchl")` produced the map+histogram. Task B confirmed on
   real data (the old exact-name band lookup would have failed here).
+- **Windows/amd64 confirmed working too** (Alice, 2026-09-08/12): built and ran a
+  real PRISMA job end-to-end on Windows 11 + Docker Desktop/WSL2. Along the way,
+  fixed on that platform: BuildKit's 10 s Docker Hub timeout during build (launcher
+  now pre-pulls the base image with retries), container DNS breakage during the
+  auxdata download (`docker-compose.yml` `dns: [8.8.8.8, 1.1.1.1]`), a stale
+  `.lock` file aborting the auxdata download (`aux_job.clear_stale_locks()`), and
+  a TOCTOU crash in `auxdata_size_mb()`/`verify_auxdata()` racing the download.
+- `apply_land_mode()` verified to set `Params(...).BITMASK_INVALID == 550` for
+  "process" (unit + in-image check); **not yet verified against a real run**
+  whether land pixels in the output actually come out non-NaN (see §7 item 1 and
+  the new item 11 TODO).
+- Sidebar footer HTML bug (raw `**`/`[]()` shown instead of rendered markdown)
+  fixed and confirmed on screen.
 
 **NOT verified:**
 - NASA Earthdata path end-to-end (only the CDS/ERA5 path has had a full run).
@@ -67,6 +80,9 @@ worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
   401/"bad" path was seen). They are best-effort and never block saving.
 - The Streamlit theme colours (light theme is applied; the teal primaryColor was
   not pixel-checked).
+- "Land handling = process" and "= gsw" have not been run end-to-end against a
+  real product to confirm the output actually contains corrected land pixels
+  (only the `Params.BITMASK_INVALID` wiring was checked, not a full Polymer run).
 
 ## 3. File map (`docker/`)
 
@@ -299,7 +315,9 @@ Priority order:
 4. `estimate_total_blocks` still opens non-PRISMA Level-1 products twice (once to
    probe shape, once for the real run). PRISMA is now skipped. Minor I/O waste.
 5. PRISMA + `ancillary="none"` in the UI is effectively ignored (the reader
-   forces `Ancillary_NASA`). Could disable "none" for PRISMA or document it.
+   forces `Ancillary_NASA` when no ancillary object is passed). The "none" option
+   is still selectable for PRISMA in the Processing tab; could disable it there
+   or document it more visibly (the Setup-config caption already flags it).
 6. Base image `mambaorg/micromamba:1.5-jammy` is pinned by minor tag, not digest.
 7. `environment.arm64.yml` is solved fresh each build — a transitive package
    could shift under it. A real `conda-lock` aarch64 lock would pin it.
@@ -323,6 +341,19 @@ Priority order:
    (the credential *files* get 0600, which is what matters).
 10. `_finalize` `duration_s` is wall-clock; for a job orphaned by a container
     stop it can be huge (the row now carries a clear "did not finish" error).
+11. **TODO — more land-mask options.** Today's "Land handling" control
+    (`params_schema.LANDMASK_MODES`) only has `mask` / `process` / `gsw`
+    (2026-09-08/12, see §2). Requested follow-up: more mask sources/finer
+    control, e.g. (a) a GSHHS coastline mask if a suitable class exists upstream,
+    (b) exposing the GSW `threshold`/`agg` knobs instead of hardcoded defaults,
+    (c) a way to supply `external_mask` (an `.hdf`/`.nc` file with a `mask`
+    dataset — `polymer/params.py` already supports it as a raw kwarg, just not
+    wired into the UI), (d) letting "process land" and "GSW" be combined instead
+    of being mutually exclusive options in one selectbox. Land handling lives in
+    `polymer_job.py` (`_resolve_landmask`, `apply_land_mode`, `_LANDMASK_SENSORS`,
+    `GSW_DIR`) + `streamlit_app.py` (the two-column ancillary/landmask selectors
+    in `tab_process`) + `params_schema.py` (`LANDMASK_MODES`,
+    `BITMASK_INVALID_PROCESS_LAND`) — extend the same three places.
 
 ## 8. Git / workflow conventions
 
@@ -340,17 +371,26 @@ Priority order:
   committed so a plain ZIP download has the folders. `.gitignore` does this with
   `/data/**` + `!/data/**/` + `!/data/**/.gitkeep` + `!/data/README.md`. Never
   `git add` real data/credentials. `.DS_Store` is git-ignored too.
-- This worktree: `.claude/worktrees/polymer-docker-container-2c853f`. Its `data/`
-  currently holds the real PRISMA test pair (CoW clones, ~0 disk) and a cloned
-  `data/auxdata` — kept for the next session's end-to-end test.
+- No linked worktrees remain (the last one, `polymer-docker-container-2c853f`,
+  was removed). Sessions work directly in the main checkout
+  `/Users/francesco/ClaudeCode/polymer-docker`.
+- Two testers, different OS/arch — see the `testers-platforms` memory: Francesco
+  on **macOS/arm64**, Alice on **Windows 11 + WSL2/amd64**. A bug report says
+  which; fixes for one platform's quirks (DNS, BuildKit timeouts, WSL memory)
+  should not be assumed to reproduce on the other — verify both launchers/paths
+  still work after touching `docker-compose.yml` or the launchers.
 
 ## 9. First steps for a new session
 
 1. `docker compose -f docker/docker-compose.yml up -d --build`, open
-   http://localhost:8501, accept the licence.
-2. If continuing the PRISMA test: Setup tab → enter the user's real NASA
-   Earthdata username/password → Verify → Save. (You cannot enter credentials
-   yourself — ask the user to.)
-3. Processing tab → the PRISMA L1 is pre-listed → Run Polymer → watch for a
-   Level-2 in `data/output/` → check the Results tab preview.
+   http://localhost:8501, accept the licence, Setup tab → download auxdata.
+2. To exercise real processing: ask the user (Francesco or Alice) for their own
+   NASA Earthdata / Copernicus CDS credentials and have *them* enter it in Setup
+   — you cannot enter credentials yourself. Then Processing tab → pick a
+   product → choose the meteo source explicitly (nothing is pre-selected) →
+   Run Polymer.
+3. Highest-value open item: verify "Land handling = process" (and "= gsw") on a
+   real product — confirm the output actually has non-NaN values over land, not
+   just that `Params.BITMASK_INVALID` is set correctly (§2 NOT verified, §7
+   item 11).
 4. Any commit/push: ask first.

@@ -58,8 +58,13 @@ command line.
    PRISMA, `.N1` for MERIS, `.L1C` for MODIS/VIIRS/SeaWiFS) — or use the in-app
    **Upload a product** panel. Reload the page.
 6. **Processing** tab → pick one or more products and a sensor (`auto` shows the
-   detected one) → **Run Polymer**. A progress bar and a Cancel button track the
-   run; batches get a summary with a "re-run failed" button.
+   detected one). Choose the **meteorological-data source** (nothing is
+   pre-selected — NASA / Copernicus ERA5 / none — climatologies are not allowed
+   for PRISMA) and, if needed, **Land handling** (by default land pixels are not
+   corrected; pick *"Correct land pixels too"* to process them, or *GSW* to use
+   the Global Surface Water dataset). Then **Run Polymer** — a progress bar and a
+   Cancel button track the run; batches get a summary with a "re-run failed"
+   button.
 7. **Results** tab → download the corrected output file (HDF by default), or open
    its folder from the *Working folders* panel. A short chime and a green banner
    confirm each run; an optional quick preview shows the corrected image.
@@ -92,7 +97,9 @@ A `data/` folder is created next to the project:
 | `data/config` | credentials, language, licence acceptance |
 
 Nothing is stored inside the container — you can delete and rebuild it without
-losing your setup.
+losing your setup. `data/input` and `data/output` can be moved elsewhere (e.g. an
+external drive) from **Working folders → Change the input / output folders** in
+the app; restart with the launcher to apply.
 
 ## Documentation
 
