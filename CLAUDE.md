@@ -27,13 +27,15 @@ Author of the packaging: **Francesco Tarini (@frabolla)** — credited in the UI
   on first run (shown in the app).
 - CI builds the image to catch breakage but **must never push** it.
 
-## 2. Current status (2026-09-24, `master` @ 6876441)
+## 2. Current status (2026-09-24, `v0.2.0`)
 
-**Released:** git tag `v0.1.0` + GitHub Release exist (points at `4cf431f`).
-Since then on `master`: land handling (mask/process/gsw), explicit meteo source,
-and the 2026-09-24 bug/security review (PR #1, merged — see §7 item 10b) plus the
-CI smoke-test fix. Not yet tagged: a `v0.1.1`/`v0.2.0` release is pending the
-testers' check of the launchers (see "NOT verified"). `origin` has only `master`.
+**Released:** `v0.1.0` (2026-09-07, `4cf431f`) and **`v0.2.0`** (2026-09-24):
+PRISMA real-data support, ERA5/CDS path, background auxdata download, first-run
+setup page, land handling (mask/process/gsw), explicit meteo source, and the
+2026-09-24 bug/security review (PR #1 — see §7 item 10b) plus the CI smoke-test
+fix. Tagged on the owner's request before the testers re-ran the launchers (see
+"NOT verified"). Tag pushed from a cloud session; the GitHub Release page is
+created by the owner (no release-creation tool there). `origin` has only `master`.
 
 **CI is green for the first time** (run #26, 2026-09-24): `test` + native
 amd64/arm64 builds + smoke test, ~10 min. Every earlier run (#2–#24) was
@@ -255,7 +257,7 @@ docker/
                              concurrency group; NEVER pushes the image. Smoke test
                              MUST pass --entrypoint (the image entrypoint ignores
                              its args and starts Streamlit, which never exits)
-VERSION                     "0.1.0" — read by app_version() (COPYd to /app/VERSION)
+VERSION                     "0.2.0" — read by app_version() (COPYd to /app/VERSION)
 ```
 
 ## 4. Key technical decisions & gotchas
@@ -462,5 +464,5 @@ Priority order:
    just that `Params.BITMASK_INVALID` is set correctly (§2 NOT verified, §7
    item 11).
 4. Next after that: have Francesco (macOS) and Alice (Windows) run the launchers
-   on current `master` and a real job; if fine, tag a new release.
+   on `v0.2.0` and a real job; fix anything found in a `v0.2.x` patch release.
 5. Any commit/push: ask first (unless the request already asks for it).
