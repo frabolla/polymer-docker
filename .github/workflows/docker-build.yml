@@ -73,9 +73,13 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
 
+      # --entrypoint is required: the image's entrypoint ignores its arguments
+      # and starts the web interface, which never exits (the job then hung
+      # until the 90-minute timeout on every run).
       - name: Smoke test - Polymer imports, app modules parse
+        timeout-minutes: 10
         run: |
-          docker run --rm polymer-gui:ci \
-            micromamba run -n polymer python -c "import polymer.polymer_main, polymer.water; from polymer.main import run_atm_corr; print('Polymer OK')"
+          docker run --rm --entrypoint micromamba polymer-gui:ci \
+            run -n polymer python -c "import polymer.polymer_main, polymer.water; from polymer.main import run_atm_corr; print('Polymer OK')"
           docker run --rm --entrypoint bash polymer-gui:ci -lc \
             "cd /app && micromamba run -n polymer python -c 'import ast, glob; [ast.parse(open(f).read()) for f in glob.glob(\"*.py\")]; print(\"app OK\")'"
