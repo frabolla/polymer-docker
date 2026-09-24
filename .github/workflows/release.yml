@@ -1,0 +1,49 @@
+# Create a git tag + GitHub Release for the version in VERSION.
+# Run by hand: Actions -> release -> Run workflow.
+#
+# Source only: this NEVER builds or attaches a Docker image (Polymer's licence
+# forbids redistribution). Attached: the HOWTO guides. Release notes are read
+# from .github/release-notes/<tag>.md, which must exist.
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag to create, e.g. v0.2.0 (must match the VERSION file)"
+        required: true
+      title:
+        description: "Release title (after the tag), e.g. PRISMA real data, ERA5/CDS"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.version }}
+          TITLE: ${{ inputs.title }}
+        run: |
+          set -eu
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::version must look like v1.2.3, got '$TAG'"; exit 1 ;;
+          esac
+          if [ "v$(cat VERSION)" != "$TAG" ]; then
+            echo "::error::VERSION file says $(cat VERSION), not ${TAG#v}"; exit 1
+          fi
+          notes=".github/release-notes/$TAG.md"
+          [ -f "$notes" ] || { echo "::error::missing $notes"; exit 1; }
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$TAG — $TITLE" \
+            --notes-file "$notes" \
+            docker/HOWTO.md docker/HOWTO.it.md
