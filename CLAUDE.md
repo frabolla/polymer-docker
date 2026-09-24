@@ -27,18 +27,30 @@ Author of the packaging: **Francesco Tarini (@frabolla)** — credited in the UI
   on first run (shown in the app).
 - CI builds the image to catch breakage but **must never push** it.
 
-## 2. Current status (as of v0.1.0, commit 4cf431f + uncommitted review fixes)
+## 2. Current status (2026-09-24, `master` @ 6876441)
 
 **Released:** git tag `v0.1.0` + GitHub Release exist (points at `4cf431f`).
-`origin/master` and `origin/polymer-docker-container`… note: the remote branch
-`polymer-docker-container` was **deleted**; only `origin/master` remains. Local
-work continues on a local branch also named `polymer-docker-container` in the
-worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
+Since then on `master`: land handling (mask/process/gsw), explicit meteo source,
+and the 2026-09-24 bug/security review (PR #1, merged — see §7 item 10b) plus the
+CI smoke-test fix. Not yet tagged: a `v0.1.1`/`v0.2.0` release is pending the
+testers' check of the launchers (see "NOT verified"). `origin` has only `master`.
+
+**CI is green for the first time** (run #26, 2026-09-24): `test` + native
+amd64/arm64 builds + smoke test, ~10 min. Every earlier run (#2–#24) was
+cancelled: the smoke test ran the image without `--entrypoint`, so
+`entrypoint.sh` started Streamlit and the job hung until the 90-min timeout.
+Fixed with `--entrypoint micromamba` + `timeout-minutes: 10` on that step.
 
 **Verified working:**
-- Image builds natively on amd64 and arm64 (multi-stage); 60-test pytest suite
-  passes (`test_quicklook.py` is skipped where xarray/netCDF4 are absent, e.g.
-  the lean CI `test` job; it runs in the image).
+- Image builds natively on amd64 and arm64 (multi-stage, locally and in CI);
+  84-test pytest suite passes (`test_quicklook.py` is skipped where
+  xarray/netCDF4 are absent, e.g. the lean CI `test` job; it runs in the image).
+- 2026-09-24 review fixes checked in a locally built amd64 image run as
+  `POLYMER_UID=1000` (Playwright): Streamlit runs as uid 1000, no root-owned
+  files left in `data/`, the CDS key is absent from the page HTML, the folders
+  dialog refuses `/` and accepts a home folder, and with a (simulated) running
+  job the History/Guide/Setup tabs render and the page leaves the running state
+  by itself when the job ends. `wget` verified to read a quoted `.netrc` password.
 - Container starts, `/_stcore/health` OK, UI loads in EN and IT, language
   persists, licence gate. First launch shows the focused one-time setup page
   (no tabs); once modules + auxdata + a credential are all present it switches
@@ -74,6 +86,12 @@ worktree, pushed to `master` via `git push origin HEAD:master` (fast-forward).
   fixed and confirmed on screen.
 
 **NOT verified:**
+- **The launchers after the 2026-09-24 review** on real machines: macOS/arm64
+  (Francesco) and Windows/WSL2 (Alice). Docker Desktop paths should be unchanged
+  (no POLYMER_UID is passed there, the app stays root), but nobody has run them.
+  The Linux uid-drop path was only exercised in a cloud sandbox.
+- A real Polymer run since the review (new preflight checks, output-name
+  sanitising, fragment-based progress panel) — only unit tests + a simulated job.
 - NASA Earthdata path end-to-end (only the CDS/ERA5 path has had a full run).
   `Ancillary_NASA` + `.netrc` still only seen failing on a bad login.
 - `credentials.test_earthdata` / `test_cds` against real valid accounts (only the
@@ -140,7 +158,8 @@ docker/
                              other tabs stay rendered during a job (a full-page
                              `time.sleep; st.rerun()` loop inside tab 1 used to
                              stop the later tabs from rendering). The CDS key
-                             field is type=password and never pre-filled. render_folders() shows the host paths with
+                             field is type=password and never pre-filled.
+                             render_folders() shows the host paths with
                              copy buttons + a "change input/output folders"
                              st.dialog (_workdirs_dialog).
     i18n.py                  t() + EN/IT string table (_STRINGS); language saved
@@ -177,8 +196,9 @@ docker/
     job_runner.py            one detached job at a time + queue; state in
                              /data/output/_run/; _Lock = fcntl.flock on
                              _run/.lock (kernel-released, no stale-lock logic);
-                             cancel() never overwrites a result the job wrote; poll() heartbeat; cancel();
-                             _prune(); failed_cfgs(); configure() for tests
+                             cancel() never overwrites a result the job wrote;
+                             poll() heartbeat; _prune(); failed_cfgs();
+                             configure() for tests
     setup_status.py          verify_auxdata(), free_space_mb(),
                              list_input_products() (hides PRS_L2C_STD_*, adds
                              */GRANULE/*), prisma_l2c_name(),
@@ -232,7 +252,9 @@ docker/
   tests/                      pytest suite (no Docker needed) — CI `test` job
 .github/workflows/docker-build.yml   test job → build on ubuntu-latest +
                              ubuntu-24.04-arm (native, both arches, every push);
-                             concurrency group; NEVER pushes the image
+                             concurrency group; NEVER pushes the image. Smoke test
+                             MUST pass --entrypoint (the image entrypoint ignores
+                             its args and starts Streamlit, which never exits)
 VERSION                     "0.1.0" — read by app_version() (COPYd to /app/VERSION)
 ```
 
@@ -280,8 +302,10 @@ VERSION                     "0.1.0" — read by app_version() (COPYd to /app/VER
   traceback stays in `_run/<id>.log`.
 - **Streamlit chrome** hidden: `[client] toolbarMode="minimal"` in config.toml +
   CSS in `streamlit_app.py`. Favicon `:material/water_drop:` (no emoji anywhere).
-- **`render_running`** polls with `time.sleep(2); st.rerun()` while a job runs —
-  the standard Streamlit pattern; it re-executes the whole page every 2 s.
+- **`render_running`** (and `_aux_running_panel`) are `@st.fragment(run_every=2)`:
+  only the panel refreshes every 2 s; when the job ends it calls `st.rerun()`
+  (full page) once. Do NOT go back to `time.sleep(2); st.rerun()` inside a tab —
+  the rerun exception aborts the script, so the tabs after it never render.
 - **Persistent state** lives only in the bind-mounted `data/`:
   `data/config/{.netrc,.cdsapirc,.polymer_licence_accepted,.polymer_lang,
   dirs.env}`, `data/auxdata`, `data/ancillary`, `data/output/{_jobs.log,_run/}`.
@@ -395,13 +419,19 @@ Priority order:
 
 - **Work directly on `master`** (owner's instruction, 2026-09-24: the project
   is theirs — no feature branches / PRs unless asked).
-- Default branch `master`. **Ask the user before every `git commit`, PR, or
-  `git push`** (staging + showing diffs is fine without asking). The user pushes
-  and opens PRs themselves via GitHub Desktop unless they explicitly ask you to.
-- `gh` is authenticated as `frabolla` and wired as git's credential helper. When
-  asked to push, the pattern is: local branch → `git push origin HEAD:master`
-  (fast-forward). Then the user `git pull`s in the main checkout
-  `/Users/francesco/ClaudeCode/polymer-docker`.
+- Default branch `master`. **Ask the user before every `git commit` or
+  `git push`** unless they already asked for it in the current request
+  (staging + showing diffs is fine without asking). Push with
+  `git push origin master` (fast-forward); the user then `git pull`s in the
+  main checkout `/Users/francesco/ClaudeCode/polymer-docker`.
+- Local sessions: `gh` is authenticated as `frabolla` and wired as git's
+  credential helper.
+- **Cloud sessions (claude.ai/code)** get a `claude/...` working branch
+  assigned; still push the work to `master` (`git push origin HEAD:master`).
+  Known sandbox limits: the git proxy refuses remote **branch deletion** (ask
+  the user to delete from GitHub); `docker build` needs the sandbox CA injected
+  via a local-only Dockerfile copy + `--network host` + proxy build-args (never
+  commit that copy); `dockerd` must be started by hand.
 - Do NOT open PRs against `upstream` (hygeos/polymer) — PRs #26/#27 there were
   closed on purpose.
 - `data/` **contents** are git-ignored, but the folder skeleton is tracked:
@@ -431,4 +461,6 @@ Priority order:
    real product — confirm the output actually has non-NaN values over land, not
    just that `Params.BITMASK_INVALID` is set correctly (§2 NOT verified, §7
    item 11).
-4. Any commit/push: ask first.
+4. Next after that: have Francesco (macOS) and Alice (Windows) run the launchers
+   on current `master` and a real job; if fine, tag a new release.
+5. Any commit/push: ask first (unless the request already asks for it).
