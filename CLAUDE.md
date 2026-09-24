@@ -34,8 +34,9 @@ PRISMA real-data support, ERA5/CDS path, background auxdata download, first-run
 setup page, land handling (mask/process/gsw), explicit meteo source, and the
 2026-09-24 bug/security review (PR #1 — see §7 item 10b) plus the CI smoke-test
 fix. Tagged on the owner's request before the testers re-ran the launchers (see
-"NOT verified"). Tag pushed from a cloud session; the GitHub Release page is
-created by the owner (no release-creation tool there). `origin` has only `master`.
+"NOT verified"). `VERSION` bumped on `master` (87c368c); the `v0.2.0` tag and
+GitHub Release are created by the owner from the GitHub web UI (cloud sessions
+cannot push tags). `origin` has only `master`.
 
 **CI is green for the first time** (run #26, 2026-09-24): `test` + native
 amd64/arm64 builds + smoke test, ~10 min. Every earlier run (#2–#24) was
@@ -430,8 +431,9 @@ Priority order:
   credential helper.
 - **Cloud sessions (claude.ai/code)** get a `claude/...` working branch
   assigned; still push the work to `master` (`git push origin HEAD:master`).
-  Known sandbox limits: the git proxy refuses remote **branch deletion** (ask
-  the user to delete from GitHub); `docker build` needs the sandbox CA injected
+  Known sandbox limits: the git proxy refuses remote **branch deletion and tag
+  pushes**, and there is no release-creation tool (ask the user to do these on
+  GitHub; draft the release notes for them); `docker build` needs the sandbox CA injected
   via a local-only Dockerfile copy + `--network host` + proxy build-args (never
   commit that copy); `dockerd` must be started by hand.
 - Do NOT open PRs against `upstream` (hygeos/polymer) — PRs #26/#27 there were
