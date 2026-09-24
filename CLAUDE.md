@@ -393,6 +393,8 @@ Priority order:
 
 ## 8. Git / workflow conventions
 
+- **Work directly on `master`** (owner's instruction, 2026-09-24: the project
+  is theirs — no feature branches / PRs unless asked).
 - Default branch `master`. **Ask the user before every `git commit`, PR, or
   `git push`** (staging + showing diffs is fine without asking). The user pushes
   and opens PRs themselves via GitHub Desktop unless they explicitly ask you to.
