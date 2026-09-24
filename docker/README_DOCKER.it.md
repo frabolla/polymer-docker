@@ -128,6 +128,16 @@ Accanto al repository viene creata la cartella `data/`:
 Nessuno di questi dati è dentro l'immagine: puoi cancellare e ricostruire
 l'immagine senza perdere configurazione e download.
 
+Su **Linux** il launcher avvia l'interfaccia con il tuo utente, così i file che
+scrive in `data/` sono tuoi (non di `root`). Se la avvii a mano con
+`docker compose`, esporta prima `POLYMER_UID=$(id -u) POLYMER_GID=$(id -g)` per
+ottenere lo stesso. Su macOS / Windows ci pensa Docker Desktop.
+
+Quando sposti le cartelle input / output, indica il percorso completo di una
+**tua** cartella (es. `/Users/nome/satellite`, `D:\satellite`): dischi interi e
+cartelle di sistema (`/`, `/etc`, `C:\Windows`, …) vengono rifiutati, perché la
+cartella viene montata in lettura e scrittura nel container.
+
 ## Risoluzione problemi
 
 | Problema | Soluzione |

@@ -820,6 +820,54 @@ _STRINGS: dict[str, dict[str, str]] = {
         "it": "Nessuno (usa le climatologie interne)",
     },
 
+    # -- validation messages
+    "folders.invalid.chars": {
+        "en": "The folder path contains a character that is not allowed "
+              "($, quotes, # or a line break).",
+        "it": "Il percorso contiene un carattere non ammesso "
+              "($, virgolette, # o un a capo).",
+    },
+    "folders.invalid.relative": {
+        "en": "Enter the full path of the folder (e.g. /Users/name/satellite or "
+              "D:\\satellite).",
+        "it": "Inserisci il percorso completo della cartella (es. /Users/nome/satellite "
+              "o D:\\satellite).",
+    },
+    "folders.invalid.root": {
+        "en": "A whole disk cannot be used: choose a folder on it.",
+        "it": "Non si può usare un intero disco: scegli una cartella al suo interno.",
+    },
+    "folders.invalid.system": {
+        "en": "That is a system or top-level folder: choose one of your own "
+              "folders instead.",
+        "it": "È una cartella di sistema o di primo livello: scegli invece una "
+              "tua cartella.",
+    },
+    "folders.invalid.parent": {
+        "en": "The path must not contain '..'.",
+        "it": "Il percorso non deve contenere '..'.",
+    },
+    "config.cred_invalid_chars": {
+        "en": "The value contains a line break or a control character: re-type it.",
+        "it": "Il valore contiene un a capo o un carattere di controllo: riscrivilo.",
+    },
+    "config.cds_key_keep": {
+        "en": "A key is already saved. Type a new one only to replace it.",
+        "it": "Una chiave è già salvata. Scrivine una nuova solo per sostituirla.",
+    },
+    "process.ancillary_missing_creds": {
+        "en": "{source} is selected as the meteorological source, but its account "
+              "is not saved. Add it in the **Setup** tab, or choose another source.",
+        "it": "Come fonte meteo è selezionato {source}, ma il suo account non è "
+              "salvato. Aggiungilo nella scheda **Configurazione** o scegli un'altra fonte.",
+    },
+    "process.output_name_sanitized": {
+        "en": "Only a file name is used; the file is written as '{name}' in the "
+              "output folder.",
+        "it": "Si usa solo il nome del file: verrà scritto come '{name}' nella "
+              "cartella di output.",
+    },
+
     # -- quicklook captions
     "quicklook.rgb": {
         "en": "Water reflectance RGB (665 / 560 / 443 nm)",

@@ -41,6 +41,12 @@ mkdir -p data/input data/output data/auxdata data/ancillary data/config
 # Let the interface show the folder paths as they are on this computer.
 export POLYMER_HOST_DIR="$REPO_ROOT/data"
 
+# Linux: run the app as you, not root, so the files it writes in data/ are
+# yours. (Docker Desktop on macOS maps file ownership by itself.)
+if [ "$(uname -s)" = "Linux" ]; then
+  export POLYMER_UID="$(id -u)" POLYMER_GID="$(id -g)"
+fi
+
 # The interface can move the input/output folders; it saves the choice here.
 COMPOSE_ENV=""
 if [ -f data/config/dirs.env ]; then

@@ -66,6 +66,25 @@ def test_cancel_clears_queue_and_records(runner):
     assert hist and hist[0]["result"].startswith("error")
 
 
+def test_cancel_keeps_a_result_written_meanwhile(runner):
+    runner.enqueue([_cfg("A")])
+    rid = runner.state()["run_id"]
+    # The job finished on its own just before Cancel was clicked.
+    (job_runner.RUN_DIR / f"{rid}.result.json").write_text(
+        json.dumps({"run_id": rid, "rc": 0, "output": "/data/output/A.nc", "error": ""})
+    )
+    runner.cancel()
+    assert runner.read_history()[0]["result"] == "ok"
+
+
+def test_lock_is_released_and_reentrant_across_uses(runner):
+    for _ in range(3):
+        with job_runner._Lock():
+            pass
+    runner.enqueue([_cfg("A")])  # would hang if a lock leaked
+    assert runner.state()["running"]
+
+
 def test_failed_cfgs_for_rerun(runner):
     bid = runner.enqueue([_cfg("A"), _cfg("B")])
     runner._runner_finish(runner.state()["run_id"], 1)   # A fails

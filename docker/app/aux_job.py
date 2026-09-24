@@ -17,6 +17,7 @@ Invoked internally as `python aux_job.py --run` to be the worker process.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import signal
@@ -73,6 +74,16 @@ def _pid_alive(pid: int) -> bool:
 def start() -> bool:
     """Launch the download unless one is already running. Returns True if started."""
     RUN_DIR.mkdir(parents=True, exist_ok=True)
+    # Serialise the check-then-start (two browser tabs clicking at once).
+    fd = os.open(str(RUN_DIR / "auxdata.lock"), os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        return _start_locked()
+    finally:
+        os.close(fd)  # also releases the flock
+
+
+def _start_locked() -> bool:
     if status()["running"]:
         return False
     RESULT.unlink(missing_ok=True)
@@ -156,7 +167,8 @@ def cancel() -> None:
         time.sleep(0.5)
         if not _pid_alive(pid):
             break
-    RESULT.write_text(json.dumps({"rc": 130, "error": "cancelled"}))
+    if not RESULT.exists():  # keep a result the worker wrote before it was stopped
+        RESULT.write_text(json.dumps({"rc": 130, "error": "cancelled"}))
 
 
 def clear_stale_locks() -> int:

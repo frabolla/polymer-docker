@@ -29,6 +29,11 @@ services:
       # Host path of the folder that holds data/ (set by the launchers). Lets the
       # interface show where input/output/config are on your computer.
       POLYMER_HOST_DIR: ${POLYMER_HOST_DIR:-}
+      # Host user ids (set by the launcher on Linux only): the app then runs as
+      # that user instead of root, so files in data/ stay yours. Empty = root
+      # (Docker Desktop on macOS / Windows maps file ownership itself).
+      POLYMER_UID: ${POLYMER_UID:-}
+      POLYMER_GID: ${POLYMER_GID:-}
     # Public DNS resolvers for the container. On Windows/WSL 2 the automatic DNS
     # is often broken when a VPN is on or the network uses a custom resolver, and
     # downloads then fail with "Name or service not known". Every host Polymer

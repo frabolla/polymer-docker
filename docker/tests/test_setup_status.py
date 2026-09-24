@@ -134,3 +134,34 @@ def test_workdirs_no_host_dir(tmp_path, monkeypatch):
     monkeypatch.delenv("POLYMER_HOST_DIR", raising=False)
     d = status.load_workdirs()
     assert d["input"] == "" and d["custom"] is False
+
+
+@pytest.mark.parametrize("path,reason", [
+    ("", None),
+    ("/Users/alice/satellite", None),
+    ("/home/alice/in", None),
+    ("/mnt/ext/in", None),
+    ("D:\\satellite", None),
+    ("C:\\Users\\alice\\sat", None),
+    ("/", "root"),
+    ("C:\\", "root"),
+    ("/etc", "system"),
+    ("/usr/local/x", "system"),
+    ("/Users", "system"),
+    ("C:\\Windows\\x", "system"),
+    ("C:\\Users", "system"),
+    ("data/in", "relative"),
+    ("/home/a/../../etc", "parent"),
+    ("/home/a/$HOME", "chars"),
+    ('/home/a/"x', "chars"),
+])
+def test_validate_workdir(path, reason):
+    assert status.validate_workdir(path) == reason
+
+
+def test_save_workdirs_refuses_unsafe(tmp_path, monkeypatch):
+    monkeypatch.setattr(status, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(status, "WORKDIRS_FILE", tmp_path / "dirs.env")
+    with pytest.raises(ValueError, match="root"):
+        status.save_workdirs("/", "")
+    assert not (tmp_path / "dirs.env").exists()

@@ -27,10 +27,32 @@ if ! micromamba run -n polymer python -c "import polymer.polymer_main" 2>/dev/nu
     exit 1
 fi
 
+# On Linux hosts the launcher passes the host user's ids (POLYMER_UID/GID): the
+# interface and the jobs then run as that user, so the files they create in
+# data/ belong to it (not root) and a compromised app cannot act as root.
+# Docker Desktop (macOS / Windows) maps file ownership itself; nothing is passed
+# there and the app keeps running as root, as before.
+RUN_AS=()
+if [ "$(id -u)" = "0" ] && [ -n "${POLYMER_UID:-}" ] && [ "${POLYMER_UID}" != "0" ]; then
+    uid="$POLYMER_UID"
+    gid="${POLYMER_GID:-$POLYMER_UID}"
+    case "$uid:$gid" in
+        *[!0-9:]*)
+            echo "WARNING: ignoring non-numeric POLYMER_UID/POLYMER_GID ($uid:$gid)" >&2
+            ;;
+        *)
+            # Hand over what the folders above or older (root) versions created.
+            find /data -uid 0 -exec chown -h "$uid:$gid" {} + 2>/dev/null || true
+            RUN_AS=(setpriv --reuid="$uid" --regid="$gid" --clear-groups --)
+            echo "==> Running as host user $uid:$gid"
+            ;;
+    esac
+fi
+
 # Run from /app so Streamlit reads /app/.streamlit/config.toml (theme, etc.).
 cd /app
 
 echo "==> Interface available at http://localhost:8501"
-exec micromamba run -n polymer streamlit run /app/streamlit_app.py \
+exec "${RUN_AS[@]}" micromamba run -n polymer streamlit run /app/streamlit_app.py \
     --server.port=8501 \
     --server.address=0.0.0.0
