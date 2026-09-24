@@ -18,7 +18,6 @@ from __future__ import annotations
 import json
 import os
 import stat as _stat
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -29,6 +28,7 @@ import credentials as cred
 import i18n
 import job_runner
 import quicklook
+from polymer_job import safe_output_name
 import setup_status as status
 import uploads
 from params_schema import (
@@ -202,8 +202,11 @@ def _workdirs_dialog() -> None:
     new_out = st.text_input(i18n.t("folders.output"), value=dirs["output"])
     c1, c2 = st.columns(2)
     if c1.button(i18n.t("folders.save"), type="primary"):
-        status.save_workdirs(new_in, new_out)
-        st.success(i18n.t("folders.saved_restart"))
+        try:
+            status.save_workdirs(new_in, new_out)
+            st.success(i18n.t("folders.saved_restart"))
+        except ValueError as exc:
+            st.error(i18n.t(f"folders.invalid.{exc}"))
     if dirs["custom"] and c2.button(i18n.t("folders.reset")):
         status.clear_workdirs()
         st.success(i18n.t("folders.reset_done"))
@@ -260,16 +263,7 @@ def render_auxdata_section() -> None:
 
     aux = aux_job.status()
     if aux["running"]:
-        st.info(i18n.t("config.aux_running", s=aux["elapsed_s"]))
-        st.progress(0.0, text=i18n.t("run.phase_download"))
-        if aux["tail"]:
-            with st.expander(i18n.t("config.aux_log"), expanded=False):
-                st.code(aux["tail"], language="text")
-        if st.button(i18n.t("config.aux_cancel")):
-            aux_job.cancel()
-            st.rerun()
-        time.sleep(2)
-        st.rerun()
+        _aux_running_panel()
         return
 
     # A download finished but the required files are still not all there.
@@ -295,6 +289,26 @@ def render_auxdata_section() -> None:
     if st.button(label, type="primary", disabled=free < 500):
         if aux_job.start():
             st.rerun()
+
+
+@st.fragment(run_every=2)
+def _aux_running_panel() -> None:
+    """
+    Live view of the auxdata download. A fragment refreshes only itself every
+    2 s, so the rest of the page (other tabs included) stays rendered; once the
+    download ends it triggers one full-page rerun.
+    """
+    aux = aux_job.status()
+    if not aux["running"]:
+        st.rerun()
+    st.info(i18n.t("config.aux_running", s=aux["elapsed_s"]))
+    st.progress(0.0, text=i18n.t("run.phase_download"))
+    if aux["tail"]:
+        with st.expander(i18n.t("config.aux_log"), expanded=False):
+            st.code(aux["tail"], language="text")
+    if st.button(i18n.t("config.aux_cancel")):
+        aux_job.cancel()
+        st.rerun()
 
 
 # --------------------------------------------------- setup: credentials section
@@ -328,7 +342,9 @@ def _cred_box(kind: str) -> None:
             if verify:
                 _show_cred_test(cred.test_earthdata(login, pw))
             if save:
-                if login and pw:
+                if cred.invalid_credential_chars(login, pw):
+                    st.error(i18n.t("config.cred_invalid_chars"))
+                elif login and pw:
                     cred.write_earthdata(login, pw)
                     st.success(i18n.t("config.nasa_saved"))
                     st.rerun()
@@ -349,18 +365,25 @@ def _cred_box(kind: str) -> None:
             else:
                 st.caption(i18n.t("config.not_saved"))
             with st.form("form_cds"):
+                # Masked and never pre-filled: the saved key is not sent back to
+                # the browser.
                 key = st.text_input(
                     i18n.t("config.cds_key"),
-                    value=cds.get("key", ""),
+                    value="",
+                    type="password",
+                    placeholder=i18n.t("config.cds_key_keep") if saved else None,
                     help=i18n.t("config.cds_key_help"),
                 )
                 b1, b2 = st.columns(2)
                 save = b1.form_submit_button(i18n.t("config.cds_save"), type="primary")
                 verify = b2.form_submit_button(i18n.t("config.cred_test"))
             if verify:
-                _show_cred_test(cred.test_cds(key.strip()))
+                # An empty field verifies the key already saved.
+                _show_cred_test(cred.test_cds(key.strip() or cds.get("key", "")))
             if save:
-                if key.strip():
+                if cred.invalid_credential_chars(key.strip()):
+                    st.error(i18n.t("config.cred_invalid_chars"))
+                elif key.strip():
                     cred.write_cds(key.strip())
                     st.success(i18n.t("config.cds_saved"))
                     st.rerun()
@@ -446,7 +469,7 @@ def build_job_config(
         "input": input_path,
         "sensor": sensor,
         "output_dir": str(OUTPUT_DIR),
-        "output_name": output_name,
+        "output_name": safe_output_name(output_name),
         "fmt": fmt,
         "resolution": resolution,
         "ancillary": ancillary,
@@ -484,7 +507,17 @@ def _phase(log_text: str, blocks_done: int) -> str:
     return i18n.t("run.phase_reading")
 
 
-def render_running(stt: dict) -> None:
+@st.fragment(run_every=2)
+def render_running() -> None:
+    """
+    Live view of the running job. A fragment refreshes only itself every 2 s, so
+    the other tabs stay rendered while a job runs; when the job (and the queue)
+    is done it triggers one full-page rerun to show the result.
+    """
+    job_runner.poll()
+    stt = job_runner.state()
+    if not stt.get("running"):
+        st.rerun()
     st.subheader(i18n.t("run.title"))
     if stt.get("total_in_batch", 1) > 1 or stt.get("queued"):
         st.caption(
@@ -526,9 +559,6 @@ def render_running(stt: dict) -> None:
         job_runner.cancel()
         st.rerun()
 
-    time.sleep(2)
-    st.rerun()
-
 
 def render_last_result() -> None:
     batch_id = st.session_state.get("last_batch")
@@ -556,10 +586,14 @@ def render_last_result() -> None:
         out = Path(str(r.get("output", "")))
         st.markdown("**" + i18n.t("done.file", name=out.name) + "**")
         data_path = OUTPUT_DIR / out.name
-        if data_path.exists() and data_path.stat().st_size <= 400 * 1e6:
+        try:
+            dst = data_path.stat()
+        except OSError:
+            dst = None
+        if dst is not None and dst.st_size <= 400 * 1e6:
             st.download_button(
                 i18n.t("done.download"),
-                data=data_path.read_bytes(),
+                data=_file_bytes(str(data_path), dst.st_mtime, dst.st_size),
                 file_name=out.name,
                 mime="application/octet-stream",
                 key=f"dl_{r['run_id']}",
@@ -613,7 +647,7 @@ def tab_process() -> None:
     job_runner.poll()
     stt = job_runner.state()
     if stt.get("running"):
-        render_running(stt)
+        render_running()
         return
 
     render_last_result()
@@ -721,8 +755,11 @@ def tab_process() -> None:
             value="",
             help=i18n.t("process.output_name_help"),
         )
+        clean = safe_output_name(output_name)
+        if clean and clean != output_name.strip():
+            st.caption(i18n.t("process.output_name_sanitized", name=clean))
 
-    prisma_block = False
+    run_blocked = False
     prisma_selected = any(
         sensor == "PRISMA" or Path(n).name.startswith("PRS_L1_STD_OFFL_")
         for n in selected
@@ -738,13 +775,18 @@ def tab_process() -> None:
                         companion=companion,
                     )
                 )
-                prisma_block = True
+                run_blocked = True
     if prisma_selected and not cred.status()["earthdata"] and not cred.status()["cds"]:
         st.error(i18n.t("process.prisma_needs_creds"))
-        prisma_block = True
+        run_blocked = True
 
     if ancillary is None:
         st.info(i18n.t("process.ancillary_need_choice"))
+    elif ancillary in ("NASA", "ERA5") and ancillary not in configured:
+        st.error(
+            i18n.t("process.ancillary_missing_creds", source=i18n.t(f"ancillary.{ancillary}"))
+        )
+        run_blocked = True
 
     free = status.free_space_mb()
     if free < 2000:
@@ -753,7 +795,7 @@ def tab_process() -> None:
     if st.button(
         i18n.t("process.run"),
         type="primary",
-        disabled=not selected or ancillary is None or free < 500 or prisma_block,
+        disabled=not selected or ancillary is None or free < 500 or run_blocked,
     ):
         advanced = parse_advanced(advanced_text)
         cfgs = [
@@ -824,7 +866,10 @@ def tab_results() -> None:
         return
 
     pick = st.selectbox(i18n.t("results.pick"), files, format_func=lambda p: p.name)
-    stat = pick.stat()
+    try:
+        stat = pick.stat()
+    except OSError:  # removed / replaced since the list was built
+        st.rerun()
     size_mb = stat.st_size / 1e6
     when = datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds")
     st.caption(i18n.t("results.info", name=pick.name, size=size_mb, when=when))

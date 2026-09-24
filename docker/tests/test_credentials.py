@@ -44,3 +44,27 @@ def test_status_summary(cfgdir):
     cred.write_cds("k")
     s = cred.status()
     assert s["earthdata"] and s["cds"] and s["earthdata_login"] == "bob"
+
+
+@pytest.mark.parametrize("pw", ["my pass#1", 'q"uo\\te', "back\\slash end"])
+def test_earthdata_special_chars_roundtrip(cfgdir, pw):
+    import netrc
+
+    cred.write_earthdata("alice", pw)
+    assert cred.read_earthdata() == {"login": "alice", "password": pw}
+    # Python's own parser (used by requests) must agree.
+    entry = netrc.netrc(str(cfgdir / ".netrc")).authenticators(cred.EARTHDATA_MACHINE)
+    assert entry[0] == "alice" and entry[2] == pw
+
+
+def test_line_breaks_are_rejected(cfgdir):
+    with pytest.raises(ValueError):
+        cred.write_earthdata("alice", "pw\nmachine evil.example login x password y")
+    with pytest.raises(ValueError):
+        cred.write_cds("KEY\nurl: https://evil.example")
+    assert not (cfgdir / ".netrc").exists() and not (cfgdir / ".cdsapirc").exists()
+
+
+def test_cds_file_is_private(cfgdir):
+    cred.write_cds("KEY123")
+    assert stat.S_IMODE((cfgdir / ".cdsapirc").stat().st_mode) == 0o600

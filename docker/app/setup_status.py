@@ -5,8 +5,9 @@ integrity verification.
 from __future__ import annotations
 
 import os
+import re
 import shutil
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 AUXDATA_DIR = Path(os.environ.get("DIR_POLYMER_AUXDATA", "/data/auxdata/static"))
 ANCILLARY_DIR = Path(os.environ.get("DIR_POLYMER_ANCILLARY", "/data/ancillary"))
@@ -186,8 +187,64 @@ def load_workdirs() -> dict:
     return dirs
 
 
+# A chosen folder becomes a read-write bind mount of a container that runs as
+# root, so system locations and whole disks are refused.
+_POSIX_SYSTEM = {
+    "bin", "boot", "dev", "etc", "lib", "lib32", "lib64", "libx32", "proc", "root",
+    "run", "sbin", "srv", "sys", "usr", "var", "private", "System", "Library",
+    "Applications", "cores",
+}
+_POSIX_TOO_BROAD = {"/home", "/Users", "/Volumes", "/mnt", "/media", "/opt", "/tmp"}
+_WINDOWS_SYSTEM = {"windows", "program files", "program files (x86)", "programdata", "users"}
+# `$` would be expanded by `docker compose --env-file`; quotes / `#` / control
+# characters would change how the line is parsed.
+_BAD_CHARS = re.compile(r'[\x00-\x1f\x7f$"\'`#]')
+
+
+def validate_workdir(value: str) -> str | None:
+    """
+    Check a host folder typed in the "change folders" dialog.
+
+    Returns None when acceptable (an empty value means "use the default"), else a
+    reason code: "chars", "relative", "root", "system" or "parent".
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    if _BAD_CHARS.search(value):
+        return "chars"
+    if re.match(r"^[A-Za-z]:[\\/]", value):  # Windows drive path
+        wp = PureWindowsPath(value)
+        if ".." in wp.parts:
+            return "parent"
+        rest = [x.lower() for x in wp.parts[1:]]
+        if not rest:
+            return "root"
+        if rest[0] in _WINDOWS_SYSTEM and (rest[0] != "users" or len(rest) < 2):
+            return "system"
+        return None
+    if value.startswith("/"):
+        pp = PurePosixPath(value)
+        if ".." in pp.parts:
+            return "parent"
+        rest = pp.parts[1:]
+        if not rest:
+            return "root"
+        if rest[0] in _POSIX_SYSTEM or str(pp) in _POSIX_TOO_BROAD:
+            return "system"
+        return None
+    return "relative"
+
+
 def save_workdirs(input_dir: str, output_dir: str) -> None:
-    """Persist an input/output override for the next container start."""
+    """Persist an input/output override for the next container start.
+
+    Raises ValueError(reason_code) if either folder is refused by validate_workdir().
+    """
+    for value in (input_dir, output_dir):
+        reason = validate_workdir(value)
+        if reason:
+            raise ValueError(reason)
     lines = ["# Written by the Polymer interface. Delete to restore the defaults."]
     for value, env in ((input_dir, "POLYMER_INPUT_DIR"), (output_dir, "POLYMER_OUTPUT_DIR")):
         value = (value or "").strip()

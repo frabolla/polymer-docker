@@ -15,6 +15,7 @@ Public API:
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
@@ -92,29 +93,25 @@ def _pid_alive(pid: int) -> bool:
 
 
 class _Lock:
-    """Best-effort exclusive lock; steals a lock older than 30 s."""
+    """
+    Exclusive lock on RUN_DIR/.lock (flock).
+
+    The kernel releases it when the holder exits, so a crashed Streamlit process
+    can never leave it stuck. Each `with _Lock()` opens its own file description,
+    so it also serialises threads of the same process (one per browser tab).
+    """
 
     def __enter__(self):
         RUN_DIR.mkdir(parents=True, exist_ok=True)
-        for _ in range(50):
-            try:
-                fd = os.open(str(LOCK), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                os.write(fd, str(time.time()).encode())
-                os.close(fd)
-                return self
-            except FileExistsError:
-                try:
-                    if time.time() - float(LOCK.read_text() or 0) > 30:
-                        LOCK.unlink(missing_ok=True)
-                        continue
-                except Exception:
-                    LOCK.unlink(missing_ok=True)
-                    continue
-                time.sleep(0.1)
+        self._fd = os.open(str(LOCK), os.O_CREAT | os.O_RDWR, 0o644)
+        fcntl.flock(self._fd, fcntl.LOCK_EX)
         return self
 
     def __exit__(self, *exc):
-        LOCK.unlink(missing_ok=True)
+        try:
+            fcntl.flock(self._fd, fcntl.LOCK_UN)
+        finally:
+            os.close(self._fd)
 
 
 # ------------------------------------------------------------------- job history
@@ -298,10 +295,13 @@ def cancel() -> None:
             time.sleep(0.5)
             if not _pid_alive(pid):
                 break
-        # Record the cancellation.
-        Path(cur["result"]).write_text(
-            json.dumps({"run_id": cur["run_id"], "rc": 130, "output": None, "error": "cancelled"})
-        )
+        # Record the cancellation, unless the job finished on its own meanwhile
+        # (its real result must not be overwritten).
+        res = Path(cur["result"])
+        if not res.exists():
+            _write_json(
+                res, {"run_id": cur["run_id"], "rc": 130, "output": None, "error": "cancelled"}
+            )
         _finalize(cur)
 
 

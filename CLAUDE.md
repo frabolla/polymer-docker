@@ -117,6 +117,10 @@ docker/
   Dockerfile.dockerignore    trims the build context (excludes docker/tests/ etc.)
   entrypoint.sh              mkdir /data/* incl. /data/ancillary/METEO; chmod
                              0700 /data/config, 0600 the credential files;
+                             if POLYMER_UID/GID are set (the macOS/Linux launcher
+                             sets them on Linux only) chown root-owned files under
+                             /data to them and drop privileges with `setpriv`;
+                             otherwise (Docker Desktop macOS/Windows) stays root.
                              cd /app; exec `streamlit run`
   app/
     .streamlit/config.toml   light theme, toolbarMode=minimal, maxUploadSize=2048
@@ -130,7 +134,13 @@ docker/
                              render_sidebar() carries the fork note + the (small)
                              Francesco Tarini attribution at the sidebar bottom.
                              render_last_result() = success panel + chime +
-                             download. render_folders() shows the host paths with
+                             download (bytes via the cached _file_bytes).
+                             render_running() and _aux_running_panel() are
+                             @st.fragment(run_every=2): only they refresh, so the
+                             other tabs stay rendered during a job (a full-page
+                             `time.sleep; st.rerun()` loop inside tab 1 used to
+                             stop the later tabs from rendering). The CDS key
+                             field is type=password and never pre-filled. render_folders() shows the host paths with
                              copy buttons + a "change input/output folders"
                              st.dialog (_workdirs_dialog).
     i18n.py                  t() + EN/IT string table (_STRINGS); language saved
@@ -157,11 +167,17 @@ docker/
                              geographic mask alone is not enough — Polymer skips
                              any pixel where bitmask & BITMASK_INVALID). _KEEP
                              sentinel; _preflight() also checks the GSW dataset.
+                             safe_output_name(): output_name is reduced to a
+                             bare file name (no path traversal); _preflight()
+                             refuses an output equal to the input and a chosen
+                             NASA/ERA5 source without its saved credential.
                              NOTE: landmask is a Level1 constructor kwarg, NOT a
                              run_atm_corr kwarg — `landmask=...` in Advanced
                              params is silently ignored by Polymer.
     job_runner.py            one detached job at a time + queue; state in
-                             /data/output/_run/; poll() heartbeat; cancel();
+                             /data/output/_run/; _Lock = fcntl.flock on
+                             _run/.lock (kernel-released, no stale-lock logic);
+                             cancel() never overwrites a result the job wrote; poll() heartbeat; cancel();
                              _prune(); failed_cfgs(); configure() for tests
     setup_status.py          verify_auxdata(), free_space_mb(),
                              list_input_products() (hides PRS_L2C_STD_*, adds
@@ -169,10 +185,22 @@ docker/
                              missing_prisma_companion(), app_version(),
                              load_workdirs()/save_workdirs()/clear_workdirs()
                              (input/output host-path override -> config/dirs.env)
+                             validate_workdir(): the override becomes a rw bind
+                             mount, so relative paths, whole disks, system dirs,
+                             `..` and `$ " ' ` #`/control chars are refused
+                             (save_workdirs raises ValueError(reason code),
+                             i18n "folders.invalid.<code>")
     credentials.py           read/write ~/.netrc (NASA) and ~/.cdsapirc (CDS);
+                             files created 0600 atomically (_write_private);
+                             netrc tokens with spaces/#/quotes are written quoted
+                             (wget + Python netrc both accept it); line breaks /
+                             control chars rejected (invalid_credential_chars);
                              test_earthdata()/test_cds() best-effort HTTP checks
     uploads.py               st.file_uploader handler: .zip → safe-extract,
-                             single-file products saved as-is
+                             single-file products saved as-is. macOS Finder junk
+                             (__MACOSX/, ._*, .DS_Store) is skipped, so a Finder
+                             zip is not nested one level too deep; extraction is
+                             refused if it would not fit on disk (+500 MB margin)
     quicklook.py             list_2d_vars(), make_png(path, out, var=None);
                              nearest-wavelength band match (±20 nm). Used only
                              for the optional "quick visual check" in Results —
@@ -341,6 +369,14 @@ Priority order:
    (the credential *files* get 0600, which is what matters).
 10. `_finalize` `duration_s` is wall-clock; for a job orphaned by a container
     stop it can be huge (the row now carries a clear "did not finish" error).
+10b. **Security/bug review (2026-09-24)** fixed: netrc quoting, Finder zips,
+    other tabs blank during a run, 400 MB re-read on every rerun, broken job lock,
+    cancel overwriting a real result, arbitrary host bind mounts via "change
+    folders", output-name path traversal, CDS key shown in clear, root-owned
+    files on Linux hosts, 0644 window on credential files, zip size. Not fixed
+    (by design): Streamlit has no Host-header check, so a DNS-rebinding page could
+    in theory drive the UI while it runs — the port is localhost-only and the
+    worst primitives (host mounts, key display) are now closed.
 11. **TODO — more land-mask options.** Today's "Land handling" control
     (`params_schema.LANDMASK_MODES`) only has `mask` / `process` / `gsw`
     (2026-09-08/12, see §2). Requested follow-up: more mask sources/finer
@@ -357,6 +393,8 @@ Priority order:
 
 ## 8. Git / workflow conventions
 
+- **Work directly on `master`** (owner's instruction, 2026-09-24: the project
+  is theirs — no feature branches / PRs unless asked).
 - Default branch `master`. **Ask the user before every `git commit`, PR, or
   `git push`** (staging + showing diffs is fine without asking). The user pushes
   and opens PRs themselves via GitHub Desktop unless they explicitly ask you to.

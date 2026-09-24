@@ -23,12 +23,71 @@ EARTHDATA_MACHINE = "urs.earthdata.nasa.gov"
 CDS_URL = "https://cds.climate.copernicus.eu/api"
 
 
+def _write_private(path: Path, text: str) -> None:
+    """Write `text` to `path` with mode 0600 from the start (no world-readable window)."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.unlink(missing_ok=True)
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        fh.write(text)
+    os.chmod(tmp, 0o600)
+    tmp.replace(path)
+
+
+def _ensure_config_dir() -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        CONFIG_DIR.chmod(0o700)
+    except OSError:
+        pass
+
+
 # --------------------------------------------------------------------------- NASA
+def _netrc_tokens(text: str) -> list[str]:
+    """Split .netrc text into tokens, honouring "double quotes" and backslash escapes."""
+    tokens: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c.isspace():
+            i += 1
+            continue
+        buf = []
+        if c == '"':
+            i += 1
+            while i < n and text[i] != '"':
+                if text[i] == "\\" and i + 1 < n:
+                    i += 1
+                buf.append(text[i])
+                i += 1
+            i += 1  # closing quote
+        else:
+            while i < n and not text[i].isspace():
+                if text[i] == "\\" and i + 1 < n:
+                    i += 1
+                buf.append(text[i])
+                i += 1
+        tokens.append("".join(buf))
+    return tokens
+
+
+def _netrc_quote(value: str) -> str:
+    """Quote a .netrc token when it holds whitespace, '#', quotes or backslashes."""
+    if value and not any(c.isspace() or c in '"#\\' for c in value):
+        return value
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def invalid_credential_chars(*values: str) -> bool:
+    """True if a value holds a line break / control character (cannot go in a file line)."""
+    return any(ord(c) < 32 or ord(c) == 127 for v in values for c in (v or ""))
+
+
 def read_earthdata() -> dict:
     """Return {'login': ..., 'password': ...} if present in .netrc, else {}."""
     if not NETRC.exists():
         return {}
-    tokens = NETRC.read_text().split()
+    tokens = _netrc_tokens(NETRC.read_text())
     out: dict[str, str] = {}
     for i, tok in enumerate(tokens):
         if tok == "machine" and i + 1 < len(tokens) and tokens[i + 1] == EARTHDATA_MACHINE:
@@ -42,12 +101,15 @@ def read_earthdata() -> dict:
 
 
 def write_earthdata(login: str, password: str) -> None:
-    """Create/update the Earthdata line in ~/.netrc, leaving other lines intact."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    try:
-        CONFIG_DIR.chmod(0o700)
-    except OSError:
-        pass
+    """
+    Create/update the Earthdata line in ~/.netrc, leaving other lines intact.
+
+    Values holding spaces, '#' or quotes are written quoted (understood by wget
+    and Python's netrc); line breaks are rejected with ValueError.
+    """
+    if invalid_credential_chars(login, password):
+        raise ValueError("line break or control character in the credentials")
+    _ensure_config_dir()
     lines = []
     if NETRC.exists():
         lines = [
@@ -56,10 +118,10 @@ def write_earthdata(login: str, password: str) -> None:
             if EARTHDATA_MACHINE not in ln
         ]
     lines.append(
-        f"machine {EARTHDATA_MACHINE} login {login} password {password}"
+        f"machine {EARTHDATA_MACHINE} login {_netrc_quote(login)} "
+        f"password {_netrc_quote(password)}"
     )
-    NETRC.write_text("\n".join(ln for ln in lines if ln.strip()) + "\n")
-    NETRC.chmod(0o600)
+    _write_private(NETRC, "\n".join(ln for ln in lines if ln.strip()) + "\n")
 
 
 def clear_earthdata() -> None:
@@ -68,8 +130,7 @@ def clear_earthdata() -> None:
             ln for ln in NETRC.read_text().splitlines() if EARTHDATA_MACHINE not in ln
         ]
         if any(ln.strip() for ln in lines):
-            NETRC.write_text("\n".join(lines) + "\n")
-            NETRC.chmod(0o600)
+            _write_private(NETRC, "\n".join(lines) + "\n")
         else:
             NETRC.unlink()
 
@@ -87,13 +148,10 @@ def read_cds() -> dict:
 
 
 def write_cds(key: str, url: str = CDS_URL) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    try:
-        CONFIG_DIR.chmod(0o700)
-    except OSError:
-        pass
-    CDSAPIRC.write_text(f"url: {url}\nkey: {key}\n")
-    CDSAPIRC.chmod(0o600)
+    if invalid_credential_chars(key, url):
+        raise ValueError("line break or control character in the CDS key")
+    _ensure_config_dir()
+    _write_private(CDSAPIRC, f"url: {url}\nkey: {key}\n")
 
 
 def clear_cds() -> None:

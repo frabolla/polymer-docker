@@ -125,6 +125,16 @@ A `data/` folder is created next to the repository:
 None of this data lives inside the image: you can delete and rebuild the image
 without losing your setup and downloads.
 
+On **Linux** the launcher runs the interface as your own user, so the files it
+writes in `data/` belong to you (not `root`). If you start it by hand with
+`docker compose`, export `POLYMER_UID=$(id -u) POLYMER_GID=$(id -g)` first to get
+the same. On macOS / Windows Docker Desktop handles file ownership itself.
+
+When you move the input / output folders, give a full path to one of **your own**
+folders (e.g. `/Users/name/satellite`, `D:\satellite`): whole disks and system
+folders (`/`, `/etc`, `C:\Windows`, …) are refused, because the folder is
+mounted read-write into the container.
+
 ## Troubleshooting
 
 | Problem | Fix |

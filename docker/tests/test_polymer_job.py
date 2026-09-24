@@ -84,7 +84,7 @@ def test_preflight_gsw_rejected_for_unsupported_sensor(tmp_path):
     l1 = tmp_path / "A2004181.L1C"
     l1.write_bytes(b"x")
     err = pj._preflight({"input": str(l1), "sensor": "MODIS", "landmask": "gsw"})
-    assert err and "does not support a land mask" in err
+    assert err and "does not support the GSW land mask" in err
 
 
 def test_humanize_error_known_cases():
@@ -137,3 +137,32 @@ def test_build_ancillary_none_and_unknown():
         pass
     else:  # pragma: no cover
         raise AssertionError("expected ValueError for an unknown source")
+
+
+def test_safe_output_name_stays_in_output_folder():
+    assert pj.safe_output_name("result.nc") == "result.nc"
+    assert pj.safe_output_name("../config/.netrc") == ".netrc"
+    assert pj.safe_output_name("/etc/passwd") == "passwd"
+    assert pj.safe_output_name("..\\..\\x.hdf") == "x.hdf"
+    assert pj.safe_output_name("  ") == ""
+    assert pj.safe_output_name("..") == ""
+
+
+def test_preflight_refuses_overwriting_the_input(tmp_path):
+    l1 = tmp_path / "S3A_OL_1_EFR.SEN3"
+    l1.mkdir()
+    cfg = {"input": str(l1), "sensor": "OLCI", "output_dir": str(tmp_path),
+           "output_name": l1.name}
+    assert "same as the input" in pj._preflight(cfg)
+
+
+def test_preflight_chosen_ancillary_needs_its_account(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    l1 = tmp_path / "S3A_OL_1_EFR.SEN3"
+    l1.mkdir()
+    cfg = {"input": str(l1), "sensor": "OLCI"}
+    assert "Earthdata" in pj._preflight({**cfg, "ancillary": "NASA"})
+    assert "CDS" in pj._preflight({**cfg, "ancillary": "ERA5"})
+    (tmp_path / ".cdsapirc").write_text("url: x\nkey: y\n")
+    assert pj._preflight({**cfg, "ancillary": "ERA5"}) is None
+    assert pj._preflight({**cfg, "ancillary": "none"}) is None

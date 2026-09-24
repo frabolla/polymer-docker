@@ -166,12 +166,23 @@ def build_ancillary(kind: str):
     raise ValueError(f"Unknown ancillary source: {kind!r}")
 
 
+def safe_output_name(name: str) -> str:
+    """
+    Reduce a user-typed output name to a bare file name inside the output folder.
+
+    Directory parts (including Windows-style ones) are dropped, so the name can
+    never point outside the output folder. "" means "automatic name".
+    """
+    base = (name or "").replace("\\", "/").strip().rsplit("/", 1)[-1].strip()
+    return "" if base in ("", ".", "..") else base
+
+
 def build_level2(cfg: dict):
     from polymer.level2 import Level2
 
     fmt = cfg.get("fmt", "netcdf4")
     out_dir = cfg.get("output_dir") or "/data/output"
-    name = (cfg.get("output_name") or "").strip()
+    name = safe_output_name(cfg.get("output_name") or "")
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
     if name:
@@ -216,12 +227,17 @@ def _write_result(path: str, run_id: str, rc: int, output: str | None, error: st
         pass
 
 
+def _has_nasa_credentials() -> bool:
+    netrc = Path(os.environ.get("HOME", "/data/config")) / ".netrc"
+    return netrc.exists() and "urs.earthdata.nasa.gov" in netrc.read_text()
+
+
+def _has_cds_credentials() -> bool:
+    return (Path(os.environ.get("HOME", "/data/config")) / ".cdsapirc").exists()
+
+
 def _has_meteo_credentials() -> bool:
-    home = Path(os.environ.get("HOME", "/data/config"))
-    netrc = home / ".netrc"
-    if netrc.exists() and "urs.earthdata.nasa.gov" in netrc.read_text():
-        return True
-    return (home / ".cdsapirc").exists()
+    return _has_nasa_credentials() or _has_cds_credentials()
 
 
 def _preflight(cfg: dict) -> str | None:
@@ -231,6 +247,27 @@ def _preflight(cfg: dict) -> str | None:
         return f"Input file not found: {src.name} (in data/input/)."
 
     sensor = resolve_sensor(cfg)
+
+    name = safe_output_name(cfg.get("output_name") or "")
+    if name:
+        out = Path(cfg.get("output_dir") or "/data/output") / name
+        if out.resolve() == src.resolve():
+            return (
+                "The output file name is the same as the input product: it would "
+                "be overwritten. Choose a different output name."
+            )
+
+    kind = (cfg.get("ancillary") or "auto").lower()
+    if kind == "nasa" and not _has_nasa_credentials():
+        return (
+            "NASA Earthdata was chosen as the meteorological source, but no "
+            "Earthdata account is saved. Add it in the Setup tab, or choose ERA5."
+        )
+    if kind == "era5" and not _has_cds_credentials():
+        return (
+            "Copernicus ERA5 was chosen as the meteorological source, but no CDS "
+            "key is saved. Add it in the Setup tab, or choose NASA."
+        )
 
     if sensor == "prisma":
         if src.name.startswith("PRS_L1_STD_OFFL_"):
@@ -245,15 +282,17 @@ def _preflight(cfg: dict) -> str | None:
         if not _has_meteo_credentials():
             return (
                 "PRISMA needs meteorological data (ozone / wind / pressure) that "
-                "Polymer downloads from NASA Earthdata. Add a NASA Earthdata "
-                "account (or a Copernicus CDS key) in the Setup tab, then run again."
+                "Polymer downloads from NASA Earthdata or Copernicus ERA5. Add a "
+                "NASA Earthdata account or a Copernicus CDS key in the Setup tab, "
+                "then run again."
             )
 
     if (cfg.get("landmask") or "").lower() == "gsw":
         if sensor not in _LANDMASK_SENSORS:
             return (
-                f"The '{sensor}' reader does not support a land mask. Pick "
-                "'Product's built-in mask' or 'None' for the land mask."
+                f"The '{sensor}' reader does not support the GSW land mask. Pick "
+                "'Mask land out (default)' or 'Correct land pixels too' for "
+                "Land handling."
             )
         if not GSW_DIR.is_dir() or not any(GSW_DIR.iterdir()):
             return (
